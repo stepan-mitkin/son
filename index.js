@@ -11,10 +11,14 @@ async function mainCore(filename, options) {
 
     try {
         var son = sonCore()
-        son.inject(path, fs, process, esprima)
+        var config = {
+            verbose: options.verbose
+        }
+        son.inject(path, fs, process, esprima, config)
         await son.main(filename, options.output)
     } catch (ex) {
         console.log(ex)
+        process.exit(1)
     }
 }
 
@@ -27,7 +31,8 @@ function main() {
         .version(packageConfig.version)
         .description(packageConfig.description)
         .argument('<filename>', 'The Son file to parse. Can contain a function, a method, a class, or a module.')
-        .option("-o, --output <folder>", "the output folder")
+        .option("-O, --output <folder>", "the output folder")
+        .option("-B, --verbose", "Show verbose console output")
         .action(mainCore);
 
     program.parse(process.argv);

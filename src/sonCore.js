@@ -1,4 +1,10 @@
-var path, fs, process, esprima
+var path, fs, process, esprima, config
+
+function log(message) {
+    if (config.verbose) {
+        console.log(message)
+    }
+}
 
 async function main(input, output) {
     if (!output) {
@@ -7,7 +13,7 @@ async function main(input, output) {
 
     var feedFile = await readJsFile(input)
     if (feedFile.type === "function") {
-        console.log("Single function mode", input)
+        log("Single function mode: " + input)
         await processSingleFile(feedFile, output)
     } else {
         console.error("File type not supported")
@@ -22,7 +28,7 @@ async function readJsFile(filename) {
     try {
         var details = path.parse(filename)
         var content = await readFile(filename)
-        var parsed = esprima.parseScript(content)
+        var parsed = esprima.parseScript(content, {loc:true})
         var body = parsed.body
         if (body.length !== 0) {
             var firstCall = getCall(body[0])
@@ -63,8 +69,8 @@ function getCall(node) {
 }
 
 function ensureIdentifier(node) {
-    if (node.type !== "Identifier") {
-        throw new Error("Expected identifier, got " + node.type)
+    if (node.type !== "Identifier") {        
+        throw new Error("Expected identifier, got " + node.type + " at line " + node.loc.start.line)
     }
 
     return node.name
@@ -76,11 +82,12 @@ async function processSingleFile(feedFile, output) {
 
 function sonCore() {
     var unit = {}
-    unit.inject = function (path_, fs_, prosess_, esprima_) {
+    unit.inject = function (path_, fs_, prosess_, esprima_, config_) {
         path = path_
         fs = fs_
         process = prosess_
         esprima = esprima_
+        config = config_
     }
 
     unit.main = main
