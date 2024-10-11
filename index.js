@@ -1,16 +1,21 @@
 #!/usr/bin/env node
+
 const fs = require("fs").promises
 const path = require("path")
 const program = require("commander").program
 const packageConfig = require("./package.json")
 const sonCore = require("./src/sonCore")
+const esprima = require('esprima')
 
+async function mainCore(filename, options) {    
 
-function mainCore(filename, options) {    
-
-    var son = sonCore()
-    son.inject(path, fs, process)
-    son.main(filename, options.output)
+    try {
+        var son = sonCore()
+        son.inject(path, fs, process, esprima)
+        await son.main(filename, options.output)
+    } catch (ex) {
+        console.log(ex)
+    }
 }
 
 

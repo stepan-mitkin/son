@@ -2,10 +2,10 @@ defineFunction(number)  // This file describes a function
                         // that takes one argument - number.
                         // The name of the function - fizzbuzz - is taken from the filename.
 
-startSection()  // A function must have at least one section.
-                // At most one scenario within a section
-                // will be actually executed
-                // based on the matching rules.
+// This function has only one section
+// At most one scenario within a section
+// will be actually executed
+// based on the matching rules.
 
 function divisibleByThree_Fizz() { // Note that the scenario names resemble unit-test names.
     yes(number % 3 === 0) // Matching rule 1. The number must be divisible by 3.

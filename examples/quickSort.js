@@ -1,11 +1,7 @@
 defineFunction(array, begin, end, compare)
 
-startSection()
-
-function initVariables() {
-    length = end - begin
-    last = end - 1
-}
+length = end - begin
+last = end - 1
 
 startSection("Check for the trivial cases first")
 
