@@ -1,0 +1,28 @@
+{
+  "name": "son",
+  "version": "0.1.0",
+  "description": "A scenario-based programming language",
+  "main": "index.js",
+  "bin": {
+    "son": "./index.js"
+  },  
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stepan-mitkin/son.git"
+  },
+  "author": "Stepan Mitkin",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/stepan-mitkin/son/issues"
+  },
+  "homepage": "https://github.com/stepan-mitkin/son#readme",
+  "dependencies": {
+    "commander": "^12.1.0"
+  }
+}
