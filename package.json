@@ -10,7 +10,7 @@
     "example": "examples"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "qunit"
   },
   "repository": {
     "type": "git",
@@ -25,5 +25,8 @@
   "dependencies": {
     "commander": "^12.1.0",
     "esprima": "^4.0.1"
+  },
+  "devDependencies": {
+    "qunit": "^2.22.0"
   }
 }

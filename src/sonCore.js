@@ -16,7 +16,7 @@ async function main(input, output) {
         log("Single function mode: " + input)
         await processSingleFile(feedFile, output)
     } else {
-        console.error("File type not supported")
+        throw new Error("File type not supported: " + input)
     }
 }
 
