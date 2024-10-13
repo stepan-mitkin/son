@@ -1,0 +1,7 @@
+defineFunction()
+
+function foo() {
+
+}
+
+hello()

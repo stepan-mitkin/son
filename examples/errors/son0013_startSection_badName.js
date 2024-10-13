@@ -1,0 +1,3 @@
+defineFunction()
+
+startSection(badName)

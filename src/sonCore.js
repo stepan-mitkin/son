@@ -1,3 +1,5 @@
+const { getCall, getLine } = require("./common")
+const sectionBuilder = require("./sectionBuilder")
 var path, fs, process, esprima, config
 
 function log(message) {
@@ -16,7 +18,7 @@ async function main(input, output) {
         log("Single function mode: " + input)
         await processSingleFile(feedFile, output)
     } else {
-        throw new Error("File type not supported: " + input)
+        throw new Error("SON0006: File type not supported: " + input)
     }
 }
 
@@ -27,8 +29,17 @@ async function readFile(filename) {
 async function readJsFile(filename) {
     try {
         var details = path.parse(filename)
-        var content = await readFile(filename)
-        var parsed = esprima.parseScript(content, {loc:true})
+        var content, parsed
+        try {
+            content = await readFile(filename)
+        } catch (ex) {
+            throw new Error("SON0005: could not read source file: " + ex.message)
+        }
+        try {
+            parsed = esprima.parseScript(content, {loc:true})
+        } catch (ex) {
+            throw new Error("SON0010: error parsing source file: " + ex.message)
+        }
         var body = parsed.body
         if (body.length !== 0) {
             var firstCall = getCall(body[0])
@@ -55,29 +66,24 @@ async function readJsFile(filename) {
     }
 }
 
-function getCall(node) {
-    if (node.type !== "ExpressionStatement") { return undefined }
-    var expression = node.expression
-    if (expression.type !== "CallExpression") { return undefined }
-    var callee = expression.callee
-    if (callee.type != "Identifier") { return undefined }
-    var name = callee.name
-    return {
-        name: name,
-        arguments: expression.arguments
-    }
-}
-
 function ensureIdentifier(node) {
     if (node.type !== "Identifier") {        
-        throw new Error("Expected identifier, got " + node.type + " at line " + node.loc.start.line)
+        throw new Error("SON0011: expected identifier, got " + node.type + " at line " + getLine(node))
     }
 
     return node.name
 }
 
-async function processSingleFile(feedFile, output) {
-    console.log(feedFile)
+async function processSingleFile(file, output) {    
+    var machine = sectionBuilder()
+    for (var i = 1; i < file.body.length; i++) {
+        var expr = file.body[i]
+        machine.nextExpression(expr)
+    }
+    machine.done()
+    file.sections = machine.sections
+    delete file.body
+    console.log(file)
 }
 
 function sonCore() {

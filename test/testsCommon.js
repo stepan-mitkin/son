@@ -7,7 +7,7 @@ const esprima = require('esprima')
 function makeSon() {
     var son = sonCore()
     var config = {
-        verbose: true
+        verbose: false
     }
     son.inject(path, fs, process, esprima, config)
     return son
@@ -18,7 +18,14 @@ function exampleFile(filename) {
     return path.normalize(full)
 }
 
+function exampleErrorFile(filename) {
+    var full = path.join(__dirname, "..", "examples", "errors", filename)
+    return path.normalize(full)
+}
+
+
 module.exports = {
     makeSon,
-    exampleFile
+    exampleFile,
+    exampleErrorFile
 }
