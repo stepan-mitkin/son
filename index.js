@@ -6,15 +6,16 @@ const program = require("commander").program
 const packageConfig = require("./package.json")
 const sonCore = require("./src/sonCore")
 const esprima = require('esprima')
+const escodegen = require('escodegen')
 
 async function mainCore(filename, options) {    
 
-    try {
+    try {        
         var son = sonCore()
         var config = {
             verbose: options.verbose
         }
-        son.inject(path, fs, process, esprima, config)
+        son.inject(path, fs, process, esprima, escodegen, config)
         await son.main(filename, options.output)
     } catch (ex) {
         console.log(ex)

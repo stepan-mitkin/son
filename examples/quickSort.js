@@ -1,14 +1,16 @@
-defineFunction(array, begin, end, compare)
+fun(array, begin, end, compare)
 
 length = end - begin
 last = end - 1
 
-startSection("Check for the trivial cases first")
+startSection("One or zero elements")
 
 function oneElementOrEmtpy_NothingToDo() {
     yes(length === 0 || length === 1)
     return
 }
+
+startSection("Two elements")
 
 function twoElements_goodOrder_return() {
     yes(length === 2)

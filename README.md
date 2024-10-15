@@ -11,7 +11,7 @@ One key advantage of Son is that scenarios are easy to test in isolation, making
 
 **fizzbuzz.js**
 ```javascript
-defineFunction(number)  // This file describes a function 
+fun(number)  // This file describes a function 
                         // that takes one argument - number.
                         // The name of the function - fizzbuzz - is taken from the filename.
 
@@ -47,7 +47,7 @@ function divisibleByThreeAndFive_FizzBuzz() {
 
 **fibonacci.js**
 ```javascript
-defineFunction(ordinal) // This file describes a function 
+fun(ordinal) // This file describes a function 
                         // that takes one argument - ordinal.
                         // The name of the function - fibonacci - is taken from the filename.
 

@@ -1,3 +1,3 @@
-defineFunction()
+fun()
 
 startSection("one", "two")

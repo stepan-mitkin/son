@@ -12,7 +12,11 @@ tailTest("son0018_no_afterFunction.js");
 tailTest("son0018_yes_afterFunction.js");
 tailTest("son0019_no_outsideFunction.js");
 tailTest("son0019_yes_outsideFunction.js");
-
+tailTest("son0020_repeatingSectionName.js");
+tailTest("son0021_repeatingFunctionName.js");
+tailTest("son0022_repeatingParameterName.js");
+tailTest("son0023_no_twoArgs.js");
+tailTest("son0023_yes_noArgs.js");
 
 function tailTest(filename) {
     QUnit.test(filename, function (assert) {

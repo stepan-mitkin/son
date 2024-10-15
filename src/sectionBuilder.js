@@ -70,13 +70,13 @@ function handleStart(obj, step) {
             obj.current.body.push(step.expression)
             break
         case "rule":
-            throw new Error("SON0019: yes/no is unexpected outside of function, line + " + step.line)
+            throw new Error("SON0019: yes/no is unexpected outside of function, line " + step.line)
         case "function":
             obj.current.scenarios.push(step.expression)
             obj.state = "fun"
             break
         case "section":
-            startNextSection(obj, step.name)
+            startNextSection(obj, step.name, step.line)
             obj.state = "start"
             break
         default:
@@ -84,23 +84,24 @@ function handleStart(obj, step) {
     }
 }
 
-function startNextSection(obj, name) {
+function startNextSection(obj, name, line) {
     var ordinal = obj.current.ordinal + 1
     obj.sections.push(obj.current)
     obj.current = createSection(ordinal, name)
+    obj.current.line = line
 }
 
 function handleFun(obj, step) {
     switch (step.type) {
         case "code":
-            throw new Error("SON0015: plain code is unexpected after function, line + " + step.line)
+            throw new Error("SON0015: plain code is unexpected after function, line " + step.line)
         case "rule":
-            throw new Error("SON0018: yes/no is unexpected outside of function, line + " + step.line)
+            throw new Error("SON0018: yes/no is unexpected outside of function, line " + step.line)
         case "function":
             obj.current.scenarios.push(step.expression)
             break
         case "section":
-            startNextSection(obj, step.name)
+            startNextSection(obj, step.name, step.line)
             obj.state = "start"
             break
         default:

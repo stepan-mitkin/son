@@ -7,7 +7,8 @@ function getCall(node) {
     var name = callee.name
     return {
         name: name,
-        arguments: expression.arguments
+        arguments: expression.arguments,
+        line: getLine(expression)
     }
 }
 

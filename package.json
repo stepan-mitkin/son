@@ -24,7 +24,9 @@
   "homepage": "https://github.com/stepan-mitkin/son#readme",
   "dependencies": {
     "commander": "^12.1.0",
-    "esprima": "^4.0.1"
+    "escodegen": "^2.1.0",
+    "esprima": "^4.0.1",
+    "node-eval": "^2.0.0"
   },
   "devDependencies": {
     "qunit": "^2.22.0"

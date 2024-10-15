@@ -1,0 +1,6 @@
+fun()
+
+function foo() {
+    yes()    
+}
+

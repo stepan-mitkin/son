@@ -1,4 +1,4 @@
-defineFunction()
+fun()
 
 function foo() {
 

@@ -1,0 +1,3 @@
+module()
+
+const secretConstant = "hei"
