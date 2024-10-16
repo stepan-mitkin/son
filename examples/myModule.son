@@ -1,0 +1,5 @@
+module(firstName, lastName, {type: "object"})
+
+const secretConstant = "hei"
+var secretValue
+secondValue = ""

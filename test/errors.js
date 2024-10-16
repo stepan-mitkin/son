@@ -17,6 +17,9 @@ tailTest("son0021_repeatingFunctionName.js");
 tailTest("son0022_repeatingParameterName.js");
 tailTest("son0023_no_twoArgs.js");
 tailTest("son0023_yes_noArgs.js");
+tailTest("son0023_yes_noArgs.js");
+tailTest("modules/son0025_badFormat.js");
+
 
 function tailTest(filename) {
     QUnit.test(filename, function (assert) {

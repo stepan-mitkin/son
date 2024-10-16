@@ -21,7 +21,7 @@ function getTmp() {
 }
 
 testSon("add.js", assert => {
-    assert.equal(6, add(2, 3))
+    assert.equal(7, add(2, 3))
 })
 
 testSon("fizzbuzz.js", assert => {

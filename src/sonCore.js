@@ -1,6 +1,7 @@
 const {collectDeclarations, processAst, prependVariables, makeFunction,
-    parseStructure } = require("./ast")
-const { getCall, getLine } = require("./common")
+    parseStructure, createReturnObject, makeId,
+    makeReturn} = require("./ast")
+const { getCall, getLine, addToSet } = require("./common")
 const sectionBuilder = require("./sectionBuilder")
 var path, fs, process, esprima, config, escodegen
 
@@ -14,22 +15,26 @@ async function main(input, output) {
     if (!output) {
         output = process.cwd()
     }
+
+    var feedFile
     try {
-        var feedFile = await readJsFile(input)
-        if (feedFile.type === "function") {
-            log("Single function mode: " + input)
-            var generated = processSingleFile(feedFile)
-            var filename = path.join(output, feedFile.name + ".js")
-            await writeFile(filename, generated)
-        } else if(feedFile.type === "module") {
-            log("Module function mode: " + input)
-            await handleModule(feedFile, output)
-        } else {
-            throw new Error("SON0006: File type not supported: " + input)
-        }
+        feedFile = await readJsFile(input)
     } catch (ex) {
         ex.filename = input
         throw ex
+    }
+
+    if (feedFile.type === "function") {
+        log("Single function mode: " + input)
+        await handleFunction(feedFile, output)
+    } else if(feedFile.type === "module") {
+        log("Module function mode: " + input)
+        feedFile.format = config.format
+        await handleModule(feedFile, output)
+    } else {
+        var error = new Error("SON0006: File type not supported: " + input)
+        error.filename = input  
+        throw error
     }
 }
 
@@ -40,6 +45,20 @@ function createVarContext() {
         fields: {}
     }
 }
+
+function createVarContextFromModule(moduleContext) {
+    var result = {
+        variables: {},
+        declarations: {},
+        fields: {}
+    }
+
+    Object.assign(result.declarations, moduleContext.declarations)
+    Object.assign(result.declarations, moduleContext.variables)
+    return result
+}
+
+
 
 async function readFile(filename) {
     return await fs.readFile(filename, "utf-8")
@@ -85,16 +104,16 @@ async function readJsFile(filename) {
             }
 
             if (firstCall.name === "module") {
-                var config = {}
-                if (firstCall.arguments.length !== 0) {
-                    config = parseStructure(firstCall.arguments[0])
-                }
+                var args = []
+                var configuration = extractConfig(firstCall.arguments, args)               
+                body.shift()
                 return {
                     type: "module",
                     filename: filename,
                     body: body,
                     name: details.name,
-                    config: config
+                    arguments: args,
+                    config: configuration
                 }
             }
         }
@@ -109,6 +128,29 @@ async function readJsFile(filename) {
 
 }
 
+function extractConfig(input, output) {
+    var configuration = undefined
+    var names = {}
+    for (var arg of input) {
+        if (arg.type === "Identifier") {
+            var name = arg.name
+            if (name in names) {
+                throw new Error("SON0022: argument name is not unique: " + name + ". Line " + getLine(arg))
+            }
+            output.push(name)
+        } else if (arg.type === "ObjectExpression") {
+            if (configuration) {
+                throw new Error("SON0026: only one config object is allowed here. Line " + getLine(arg))
+            }
+            configuration = parseStructure(arg)
+        } else {
+            throw new Error("SON0011: expected identifier or config, got " + arg.type + ". Line " + getLine(arg))    
+        }
+    }
+    console.log(configuration)
+    return configuration || {}
+}
+
 function ensureIdentifier(node) {
     if (node.type !== "Identifier") {
         throw new Error("SON0011: expected identifier, got " + node.type + ". Line " + getLine(node))
@@ -117,8 +159,21 @@ function ensureIdentifier(node) {
     return node.name
 }
 
-function processSingleFile(file) {
-    prepareAst(file)
+async function handleFunction(file, output) {
+    try {
+        var varContext = createVarContext()    
+        var bigAst = generateFunction(file, varContext)
+        var generated = escodegen.generate(bigAst) + "\n"
+        var filename = path.join(output, file.name + ".js")
+        await writeFile(filename, generated)
+    } catch (ex) {
+        ex.filename = file.filename
+        throw ex
+    }
+}
+
+function generateFunction(file, varContext) {
+    prepareAst(file, varContext)
     ensureUniqueFunctions(file.body)    
     var machine = sectionBuilder()
     for (var i = 0; i < file.body.length; i++) {
@@ -137,8 +192,7 @@ function processSingleFile(file) {
     if (file.hasAwait) {
         bigAst.async = true
     }
-    var result = escodegen.generate(bigAst) + "\n"
-    return result
+    return bigAst
 }
 
 function buildBodyFromSections(sections) {
@@ -154,25 +208,35 @@ function appendSectionToBody(section, body) {
 
 
 
-function prepareAst(file) {
-    var varContext = createVarContext()    
+function prepareAst(file, varContext) {    
+    addToSet(file.arguments, varContext.declarations)
     file.body.forEach(expr => {extractVariables(expr, varContext.declarations)})
     file.body = file.body.map(expr => {return transformStatement(expr, varContext)})    
     prependVariables(file.body, varContext.variables)
     file.hasAwait = varContext.hasAwait
 }
 
+function collectDeclarationsFromBody(body, declarations) {
+    body.forEach(st => {collectDeclarations(st, declarations)})
+}
+
+function processAstInBody(body, varContext) {
+    return body.map(st => {return processAst(st, varContext)})
+}
+
 function extractVariables(expr, declarations) {    
     if (expr.type === "FunctionDeclaration") {
-        expr.body.body.forEach(st => {collectDeclarations(st, declarations)})
+        collectDeclarationsFromBody(expr.body.body, declarations)
     } else {
         collectDeclarations(expr, declarations)
     }
 }
 
+
+
 function transformStatement(expr, varContext) {
     if (expr.type === "FunctionDeclaration") {
-        expr.body.body = expr.body.body.map(st => {return processAst(st, varContext)})
+        expr.body.body = processAstInBody(expr.body.body, varContext)
         return expr
     } else {
         return processAst(expr, varContext)
@@ -381,12 +445,178 @@ function areUnique(items) {
     return true
 }
 
-async function handleModule(moduleFile, output) {
-    var folder = path.dirname(moduleFile.filename)
-    console.log(moduleFile.name, moduleFile.config, moduleFile.filename, folder)
+async function getFiles(folder, moduleFile, jsFiles, folders) {
+    var norm = path.normalize(moduleFile.filename)
     var filenames = await fs.readdir(folder)
-    var varContext = createVarContext()
-    console.log(filenames)
+    for (var filename of filenames) {        
+        var full = path.normalize(path.join(folder, filename))
+        if (full === norm) { continue }
+        var stats = await fs.stat(full)
+        if (filename.endsWith(".son")) {
+            throw new Error("SON0027: unexpected .son file in a module folder: " + full)
+        }
+        if (filename.endsWith(".js")) {
+            jsFiles[full] = true
+        } else if (stats.isDirectory()) {
+            folders[full] = true
+        }
+    }
+}
+
+
+async function scanModuleFolder(moduleFile, folder, varContext) {
+    var jsFiles = {}
+    var folders = {}
+    await getFiles(folder, moduleFile, jsFiles, folders)
+
+    for (var filename in jsFiles) {
+        await addFileToModule(moduleFile, filename, varContext)
+    }
+
+    for (var foldername in folders) {
+        await scanModuleFolder(moduleFile, foldername, varContext)
+    }
+}
+
+async function addFileToModule(moduleFile, filename, varContext) {
+    try {
+        var file = await readJsFile(filename)
+        var context = createVarContextFromModule(varContext)
+        if (file.type === "function") {
+            file.ast = generateFunction(file, context)            
+            moduleFile.functions.push(file)
+        } else if (file.type === "other") {
+            moduleFile.others.push(file)
+        }
+        console.log(file.filename, file.type)
+    } catch (ex) {
+        ex.filename = filename
+        throw ex
+    }
+}
+
+function checkConfig(moduleFile) {
+    var moduleType = moduleFile.config.type || "functions"
+    if (moduleType !== "functions" && moduleType !== "object") {
+        throw new Error("SON0025: Unsupported module format: " + moduleType)
+    }
+    moduleFile.moduleType = moduleType
+}
+
+function addHeader(moduleFile, blocks) {
+    if (moduleFile.moduleType === "object") {
+        var args = moduleFile.arguments.join(", ")
+        var fun = "function " + moduleFile.name + "(" + args + ") {"
+        if (moduleFile.format === "es") {
+            fun = "export " + fun
+        }
+        blocks.push(fun)
+        blocks.push("")
+    }
+    moduleFile.body.forEach(expr => {
+        blocks.push(escodegen.generate(expr))
+    })
+}
+
+function addFooter(moduleFile, blocks) {    
+    if (moduleFile.moduleType === "object") {
+        var ast = makeReturn(generateExportedObject(moduleFile))
+        var content = escodegen.generate(ast)
+        blocks.push(content)
+        blocks.push("}")
+        if (moduleFile.format === "commonjs") {
+            blocks.push(escodegen.generate(generateModuleExport(makeId(moduleFile.name))))
+        }
+    } else {
+        if (moduleFile.format === "commonjs") {
+            blocks.push(escodegen.generate(generateModuleExport(generateExportedObject(moduleFile))))
+        }
+    }
+    blocks.push("")
+}
+
+function generateModuleExport(exports) {
+    return {
+        "type": "AssignmentExpression",
+        "operator": "=",
+        "left": {
+          "type": "MemberExpression",
+          "computed": false,
+          "object": {
+            "type": "Identifier",
+            "name": "module"
+          },
+          "property": {
+            "type": "Identifier",
+            "name": "exports"
+          }
+        },
+        "right": exports
+    }
+}
+
+function generateExportedObject(moduleFile) {
+    var lines = moduleFile.functions.map(fun => { return fun.name })
+    return createReturnObject(lines)
+}
+
+function isPublic(fun) {
+    return !fun.private
+}
+
+
+
+function addOtherBlock(other, blocks) {
+    blocks.push(other.content)
+    blocks.push("")
+}
+
+function addFunctionBlock(moduleFile, fun, blocks) {
+    var content = escodegen.generate(fun.ast) + "\n"
+    if (moduleFile.format === "es" && !fun.private && moduleFile.moduleType === "functions") {
+        content = "export " + content
+    }
+    blocks.push(content)
+}
+
+async function saveModuleSource(moduleFile, content, output) {
+    var ext = ".js"
+    if (moduleFile.format === "es") {
+        ext = ".mjs"
+    }
+
+    var filename = path.join(output, moduleFile.name + ext)
+    await writeFile(filename, content)
+}
+
+async function handleModule(moduleFile, output) {    
+    try {
+        moduleFile.functions = []
+        moduleFile.others = []
+        
+        checkConfig(moduleFile)
+        moduleFile.fullPath = path.normalize(moduleFile.filename)    
+        var varContext = createVarContext()
+        addToSet(moduleFile.arguments, varContext.declarations)
+        collectDeclarationsFromBody(moduleFile.body, varContext.declarations)
+        moduleFile.body = processAstInBody(moduleFile.body, varContext)
+        prependVariables(moduleFile.body, varContext.variables)
+        
+        var folder = path.dirname(moduleFile.filename)
+    } catch (ex) {
+        ex.filename = moduleFile.filename
+        throw ex
+    }
+    await scanModuleFolder(moduleFile, folder, varContext)
+
+    var blocks = []
+    addHeader(moduleFile, blocks)
+    moduleFile.others.forEach(other => addOtherBlock(other, blocks))
+    moduleFile.functions.forEach(fun => addFunctionBlock(moduleFile, fun, blocks))
+    addFooter(moduleFile, blocks)
+
+    var content = blocks.join("\n")
+    await saveModuleSource(moduleFile, content, output)
 }
 
 module.exports = sonCore

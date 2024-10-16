@@ -32,7 +32,7 @@ function partitionAndRecurse() {
     pivotIndex = begin + length / 2
     swap(array, pivotIndex, last)
     storeIndex = begin
-    loop(array, begin, last, 1, i => {
+    loop(begin, last, 1, i => {
         storeIndex = compareWithLastAndSwap(array, i, last, storeIndex)
     })
     swap(array, storeIndex, last)

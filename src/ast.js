@@ -224,10 +224,42 @@ function getPropertyKey(property) {
     throw new Error("SON0024: unexpected property type: " + property.key.type + ". Line " + getLine(property))
 }
 
+function createReturnObject(items) {
+    var result = {
+        "type": "ObjectExpression",
+        "properties": []
+    }
+    items.sort()
+    for (var item of items) {
+        var key = makeId(item)
+        var value = makeId(item)
+        result.properties.push({
+            type: "Property",
+            computed: false,
+            key: key,
+            value: value,
+            kind: "init",
+            method: false,
+            shorthand: false
+        })
+    }
+    return result
+}
+
+function makeReturn(argument) {
+    return {
+        type: "ReturnStatement",
+        argument: argument
+    }
+}
+
 module.exports = {
     collectDeclarations,
     processAst,
     prependVariables,
     makeFunction,
-    parseStructure
+    parseStructure,
+    makeReturn,
+    createReturnObject,
+    makeId
 }

@@ -16,7 +16,14 @@ function getLine(node) {
     return node.loc.start.line
 }
 
+function addToSet(array, obj) {
+    for (var item of array) {
+        obj[item] = true
+    }
+}
+
 module.exports = {
+    addToSet,
     getCall,
     getLine
 }
