@@ -1,0 +1,3 @@
+fun(secret)
+
+secretValue = secret

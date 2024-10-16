@@ -187,9 +187,47 @@ function prependVariables(body, variables) {
     }
 }
 
+function parseStructure(node) {
+    if (node.type !== "ObjectExpression") {
+        return undefined
+    }
+    var result = {}
+    for (var property of node.properties) {
+        var key = getPropertyKey(property)
+        var value = getPropertyValue(property)
+        result[key] = value
+    }
+    return result
+}
+
+function getPropertyValue(property) {
+    if (property.value.type === "Literal") {
+        return property.value.value
+    }
+
+    if (property.value.type === "ObjectExpression") {
+        return parseStructure(property.value)
+    }    
+
+    throw new Error("SON0025: unexpected value type: " + property.value.type + ". Line " + getLine(property))
+}
+
+function getPropertyKey(property) {
+    if (property.key.type === "Identifier") {
+        return property.key.name
+    }
+
+    if (property.key.type === "Literal") {
+        return property.key.value
+    }
+
+    throw new Error("SON0024: unexpected property type: " + property.key.type + ". Line " + getLine(property))
+}
+
 module.exports = {
     collectDeclarations,
     processAst,
     prependVariables,
-    makeFunction
+    makeFunction,
+    parseStructure
 }

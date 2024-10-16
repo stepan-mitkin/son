@@ -1,4 +1,5 @@
-const {collectDeclarations, processAst, prependVariables, makeFunction} = require("./ast")
+const {collectDeclarations, processAst, prependVariables, makeFunction,
+    parseStructure } = require("./ast")
 const { getCall, getLine } = require("./common")
 const sectionBuilder = require("./sectionBuilder")
 var path, fs, process, esprima, config, escodegen
@@ -20,6 +21,9 @@ async function main(input, output) {
             var generated = processSingleFile(feedFile)
             var filename = path.join(output, feedFile.name + ".js")
             await writeFile(filename, generated)
+        } else if(feedFile.type === "module") {
+            log("Module function mode: " + input)
+            await handleModule(feedFile, output)
         } else {
             throw new Error("SON0006: File type not supported: " + input)
         }
@@ -63,19 +67,35 @@ async function readJsFile(filename) {
     var body = parsed.body[0].body.body
     if (body.length !== 0) {
         var firstCall = getCall(body[0])
-        if (firstCall && (firstCall.name === "fun"|| firstCall.name === "pfun")) {
-            var args = firstCall.arguments.map(ensureIdentifier)
-            if (!areUnique(args)) {
-                throw new Error("SON0022: parameter names are not unique. Line " + firstCall.line)
+        if (firstCall) {
+            if (firstCall.name === "fun"|| firstCall.name === "pfun") {
+                var args = firstCall.arguments.map(ensureIdentifier)
+                if (!areUnique(args)) {
+                    throw new Error("SON0022: parameter names are not unique. Line " + firstCall.line)
+                }
+                body.shift()
+                return {
+                    type: "function",
+                    filename: filename,
+                    private: firstCall.name === "pfun",
+                    body: body,
+                    name: details.name,
+                    arguments: args
+                }
             }
-            body.shift()
-            return {
-                type: "function",
-                filename: filename,
-                private: firstCall.name === "pfun",
-                body: body,
-                name: details.name,
-                arguments: args
+
+            if (firstCall.name === "module") {
+                var config = {}
+                if (firstCall.arguments.length !== 0) {
+                    config = parseStructure(firstCall.arguments[0])
+                }
+                return {
+                    type: "module",
+                    filename: filename,
+                    body: body,
+                    name: details.name,
+                    config: config
+                }
             }
         }
     }
@@ -359,6 +379,14 @@ function areUnique(items) {
         values[item] = true
     }
     return true
+}
+
+async function handleModule(moduleFile, output) {
+    var folder = path.dirname(moduleFile.filename)
+    console.log(moduleFile.name, moduleFile.config, moduleFile.filename, folder)
+    var filenames = await fs.readdir(folder)
+    var varContext = createVarContext()
+    console.log(filenames)
 }
 
 module.exports = sonCore
