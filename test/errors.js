@@ -8,8 +8,6 @@ tailTest("son0011_badDefineFunction.js");
 tailTest("son0013_startSection_badName.js");
 tailTest("son0014_startSection_manyArguments.js");
 tailTest("son0015_plainCode_afterFunction.js");
-tailTest("son0018_no_afterFunction.js");
-tailTest("son0018_yes_afterFunction.js");
 tailTest("son0019_no_outsideFunction.js");
 tailTest("son0019_yes_outsideFunction.js");
 tailTest("son0020_repeatingSectionName.js");
@@ -17,8 +15,11 @@ tailTest("son0021_repeatingFunctionName.js");
 tailTest("son0022_repeatingParameterName.js");
 tailTest("son0023_no_twoArgs.js");
 tailTest("son0023_yes_noArgs.js");
-tailTest("son0023_yes_noArgs.js");
-tailTest("modules/son0025_badFormat.js");
+tailTest("son0011/badDefineModule.js");
+tailTest("son0022/argumentsNotUnique.js");
+tailTest("son0025/badModuleType.js");
+tailTest("son0026/twoConfigs.js");
+tailTest("son0027/top.js");
 
 
 function tailTest(filename) {

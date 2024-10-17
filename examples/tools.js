@@ -5,8 +5,16 @@ function swap(array, one, two) {
     array[two] = tmp
 }
 
-function loop(first, last, increment, callback) {
-    for (var i = first; i <= last; i += increment) {
+function loop(begin, end, callback) {
+    for (var i = begin; i < end; i++) {
         callback(i)
     }
+}
+
+function compareWithLastAndSwap(array, i, last, storeIndex, compare) {
+    if (compare(array, i, last) < 0) {
+        swap(collection, i, storeIndex);
+        storeIndex++;
+    }    
+    return storeIndex
 }

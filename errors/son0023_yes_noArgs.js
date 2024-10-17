@@ -1,6 +1,6 @@
 fun()
 
-function foo() {
-    yes()    
-}
+plot()
+yes()    
+
 

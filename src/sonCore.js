@@ -137,17 +137,17 @@ function extractConfig(input, output) {
             if (name in names) {
                 throw new Error("SON0022: argument name is not unique: " + name + ". Line " + getLine(arg))
             }
+            names[name] = true
             output.push(name)
         } else if (arg.type === "ObjectExpression") {
             if (configuration) {
-                throw new Error("SON0026: only one config object is allowed here. Line " + getLine(arg))
+                throw new Error("SON0026: only one config object is allowed in a module. Line " + getLine(arg))
             }
             configuration = parseStructure(arg)
         } else {
             throw new Error("SON0011: expected identifier or config, got " + arg.type + ". Line " + getLine(arg))    
         }
-    }
-    console.log(configuration)
+    }    
     return configuration || {}
 }
 
@@ -173,8 +173,7 @@ async function handleFunction(file, output) {
 }
 
 function generateFunction(file, varContext) {
-    prepareAst(file, varContext)
-    ensureUniqueFunctions(file.body)    
+    prepareAst(file, varContext)    
     var machine = sectionBuilder()
     for (var i = 0; i < file.body.length; i++) {
         var expr = file.body[i]
@@ -184,8 +183,9 @@ function generateFunction(file, varContext) {
     file.sections = machine.sections
     delete file.body
     ensureUniqueSections(file.sections)
+    ensureUniquePlots(file.sections)
     for (var section of file.sections) {
-        section.tree = mergeScenarios(section.scenarios)        
+        section.tree = mergeScenarios(section.plots)        
     }
     var body = buildBodyFromSections(file.sections)
     var bigAst = makeFunction(file.name, file.arguments, body)
@@ -244,14 +244,14 @@ function transformStatement(expr, varContext) {
 }
 
 
-function mergeScenarios(scenarios) {
-    if (scenarios.length === 0) {
+function mergeScenarios(plots) {
+    if (plots.length === 0) {
         return undefined
     }
 
-    var root = convertToNodeList(scenarios[0])
-    for (var i = 1; i < scenarios.length; i++) {
-        var next = convertToNodeList(scenarios[i])
+    var root = convertToNodeList(plots[0])
+    for (var i = 1; i < plots.length; i++) {
+        var next = convertToNodeList(plots[i])
         mergeNodes(root, next)
     }
 
@@ -264,7 +264,7 @@ function mergeNodes(main, addition) {
     }
     
     if (main.type !== addition.type || main.text !== addition.text) {
-        throw new Error("SON0022: scenarios are not mutually exclusive. Line " + addition.line)
+        throw new Error("SON0022: plots are not mutually exclusive. Line " + addition.line)
     }
 
     if (main.type === "rule") {
@@ -282,9 +282,9 @@ function mergeNodes(main, addition) {
     }
 }
 
-function convertToNodeList(funcExpr) {
+function convertToNodeList(plot) {
 
-    var body = funcExpr.body.body
+    var body = plot.body
     if (body.length === 0) {
         return undefined
     }
@@ -395,15 +395,14 @@ function convertExpressionToNode(expression) {
     }
 }
 
-function ensureUniqueFunctions(body) {
+function ensureUniquePlots(sections) {
     var values = {}
-    for (var expr of body) {
-        if (expr.type === "FunctionDeclaration" && expr.id.type === "Identifier") {
-            var name = expr.id.name
-            if (name in values) {
-                throw new Error("SON0021: function name not unique: " + name + ". Line " + getLine(expr))
+    for (var section of sections) {
+        for (var plot of section.plots) {
+            if (plot.name in values) {
+                throw new Error("SON0021: plot name is not unique: " + plot.name + ". Line " + plot.line)
             }
-            values[name] = true
+            values[plot.name] = true
         }
     }
 }
@@ -453,7 +452,7 @@ async function getFiles(folder, moduleFile, jsFiles, folders) {
         if (full === norm) { continue }
         var stats = await fs.stat(full)
         if (filename.endsWith(".son")) {
-            throw new Error("SON0027: unexpected .son file in a module folder: " + full)
+            throw new Error("SON0027: unexpected .son file in a module subfolder: " + full)
         }
         if (filename.endsWith(".js")) {
             jsFiles[full] = true
@@ -498,7 +497,7 @@ async function addFileToModule(moduleFile, filename, varContext) {
 function checkConfig(moduleFile) {
     var moduleType = moduleFile.config.type || "functions"
     if (moduleType !== "functions" && moduleType !== "object") {
-        throw new Error("SON0025: Unsupported module format: " + moduleType)
+        throw new Error("SON0025: Unsupported module type: " + moduleType + ". Allowed values: functions, object")
     }
     moduleFile.moduleType = moduleType
 }

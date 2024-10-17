@@ -1,6 +1,6 @@
 fun()
 
-function foo() {
-    no(x, y)    
-}
+plot()
+no(x, y)    
+
 

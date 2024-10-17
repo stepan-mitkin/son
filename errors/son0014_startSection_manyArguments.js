@@ -1,3 +1,3 @@
 fun()
 
-startSection("one", "two")
+section("one", "two")

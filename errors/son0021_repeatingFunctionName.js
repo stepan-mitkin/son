@@ -1,13 +1,9 @@
 fun()
 
-startSection("hello")
+section("hello")
 
-function foo() {
+plot("foo")
 
-}
+section("bye")
 
-startSection("bye")
-
-function foo() {
-    
-}
+plot("foo")

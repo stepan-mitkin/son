@@ -1,3 +1,3 @@
 fun()
 
-startSection(badName)
+section(badName)

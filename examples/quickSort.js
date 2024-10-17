@@ -3,41 +3,40 @@ fun(array, begin, end, compare)
 length = end - begin
 last = end - 1
 
-startSection("One or zero elements")
+section("One or zero elements")
 
-function oneElementOrEmtpy_NothingToDo() {
-    yes(length === 0 || length === 1)
-    return
-}
+plot()
+yes(length === 0 || length === 1)
+return
 
-startSection("Two elements")
 
-function twoElements_goodOrder_return() {
-    yes(length === 2)
-    yes(compare(array, begin, last) <= 0)
-    return
-}
+section("Two elements")
 
-function twoElements_reverseOrder_swap() {
-    yes(length === 2)
-    no(compare(array, begin, last) <= 0)
-    swap(array, begin, last)
-    return
-}
+plot()
+yes(length === 2)
+yes(compare(array, begin, last) <= 0)
+return
 
-startSection("The actual quicksort algorithm")
 
-function partitionAndRecurse() {
-    // Partition
-    pivotIndex = begin + length / 2
-    swap(array, pivotIndex, last)
-    storeIndex = begin
-    loop(begin, last, 1, i => {
-        storeIndex = compareWithLastAndSwap(array, i, last, storeIndex)
-    })
-    swap(array, storeIndex, last)
+plot()
+yes(length === 2)
+no(compare(array, begin, last) <= 0)
+swap(array, begin, last)
+return
 
-    // Recurse
-    quickSort(array, begin, storeIndex, compare)
-    quickSort(array, storeIndex + 1, end, compare)
-}
+
+section("The actual quicksort algorithm")
+
+// Partition
+pivotIndex = begin + Math.floor(length / 2)
+swap(array, pivotIndex, last)
+storeIndex = begin
+loop(begin, last, i => {
+    storeIndex = compareWithLastAndSwap(array, i, last, storeIndex, compare)
+})
+swap(array, storeIndex, last)
+
+// Recurse
+quickSort(array, begin, storeIndex, compare)
+quickSort(array, storeIndex + 1, end, compare)
+

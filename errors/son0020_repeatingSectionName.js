@@ -1,5 +1,5 @@
 fun()
 
-startSection("hello")
+section("hello")
 
-startSection("hello")
+section("hello")

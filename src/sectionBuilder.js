@@ -6,8 +6,8 @@ function nextExpression(obj, expr) {
         case "start":
             handleStart(obj, step)
             break
-        case "fun":
-            handleFun(obj, step)
+        case "plot":
+            handlePlot(obj, step)
             break
         default:
             throw new Error("Unexpected state: " + obj.state)
@@ -17,14 +17,25 @@ function nextExpression(obj, expr) {
 function readExpression(expr) {
     var line = getLine(expr)
     if (expr.type === "FunctionDeclaration") {
-        return {
-            type: "function",
-            line: line,
-            expression: expr
-        }
+        throw new Error("SON029: FunctionDeclaration is not allowed in a Son file. Line " + line)
     }
     var call = getCall(expr)
     if (call) {
+        if (call.name === "plot") {
+            var name = ""
+            if (call.arguments.length !== 0) {
+                var first = call.arguments[0]
+                if (first.type != "Literal" || typeof first.value !== "string" ) {
+                    throw new Error("SON028: a string literal is expected in plot(), got " + first.type + ". Line " + line)
+                }
+                name = first.value
+            }            
+            return {
+                type: "plot",
+                line: line,
+                name: name
+            }             
+        }
         if (call.name === "yes" || call.name === "no") {
             if (call.arguments.length !== 1) {
                 throw new Error("SON0012: yes/no accepts one argument. Line: " + line)
@@ -33,21 +44,22 @@ function readExpression(expr) {
                 type: "rule",
                 line: line,
                 condition: call.name,                
-                arguments: call.arguments
+                arguments: call.arguments,
+                expression: expr
             }
         }
-        if (call.name === "startSection") {
+        if (call.name === "section") {
             var name
             if (call.arguments.length === 0) {
                 name = ""                
             } else if (call.arguments.length === 1) {
                 var arg = call.arguments[0]
-                if (arg.type !== "Literal" && typeof arg.value !== "string" ) {
-                    throw new Error("SON0013: the argument of startSection must be a string. Line: " + line)
+                if (arg.type !== "Literal" || typeof arg.value !== "string") {
+                    throw new Error("SON0013: the argument of section must be a string. Line: " + line)
                 }
                 name = arg.value                    
             } else {
-                throw new Error("SON0014: startSection accepts one or zero arguments. Line: " + line)
+                throw new Error("SON0014: section accepts one or zero arguments. Line: " + line)
             }
             return {
                 type: "section",
@@ -71,17 +83,56 @@ function handleStart(obj, step) {
             break
         case "rule":
             throw new Error("SON0019: yes/no is unexpected outside of function, line " + step.line)
-        case "function":
-            obj.current.scenarios.push(step.expression)
-            obj.state = "fun"
+        case "plot":
+            startPlot(obj, step.name, step.line)            
+            obj.state = "plot"
             break
         case "section":
             startNextSection(obj, step.name, step.line)
             obj.state = "start"
             break
         default:
-            throw new Error("SON0016: Unexpected expression type")
+            throw new Error("SON0016: Unexpected expression type: " + step.type)
     }
+}
+
+function handlePlot(obj, step) {
+    switch (step.type) {
+        case "code":
+        case "rule":            
+            addToPlot(obj, step.expression)
+            break
+        case "plot":
+            startPlot(obj, step.name, step.line)            
+            obj.state = "plot"
+            break            
+        case "section":
+            startNextSection(obj, step.name, step.line)
+            obj.state = "start"
+            break
+        default:
+            throw new Error("SON0017: Unexpected expression type: " + step.type)
+    }
+}
+
+function startPlot(obj, name, line) {
+    var plots = obj.current.plots
+    if (!name) {
+        var plotName = "plot " + (plots.length + 1)
+        name = obj.current.name + ", " + plotName
+    }
+    var plot = {
+        name: name,
+        line: line,
+        body: []
+    }
+    plots.push(plot)
+}
+
+function addToPlot(obj, expr) {
+    var plots = obj.current.plots
+    var lastPlot = plots[plots.length - 1]
+    lastPlot.body.push(expr)
 }
 
 function startNextSection(obj, name, line) {
@@ -91,23 +142,7 @@ function startNextSection(obj, name, line) {
     obj.current.line = line
 }
 
-function handleFun(obj, step) {
-    switch (step.type) {
-        case "code":
-            throw new Error("SON0015: plain code is unexpected after function, line " + step.line)
-        case "rule":
-            throw new Error("SON0018: yes/no is unexpected outside of function, line " + step.line)
-        case "function":
-            obj.current.scenarios.push(step.expression)
-            break
-        case "section":
-            startNextSection(obj, step.name, step.line)
-            obj.state = "start"
-            break
-        default:
-            throw new Error("SON0017: Unexpected expression type")
-    }
-}
+
 
 function done(obj) {
     if (obj.state === "complete") {
@@ -123,7 +158,7 @@ function createSection(ordinal, name) {
         name: name || ("#" + ordinal),
         ordinal: ordinal,
         body: [],
-        scenarios: []
+        plots: []
     }
 }
 

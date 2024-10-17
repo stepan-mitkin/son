@@ -15,7 +15,7 @@ fun(number)  // This file describes a function
                         // that takes one argument - number.
                         // The name of the function - fizzbuzz - is taken from the filename.
 
-startSection()  // A function must have at least one section.
+section()  // A function must have at least one section.
                 // At most one scenario within a section
                 // will be actually executed
                 // based on the matching rules.
@@ -51,7 +51,7 @@ fun(ordinal) // This file describes a function
                         // that takes one argument - ordinal.
                         // The name of the function - fibonacci - is taken from the filename.
 
-startSection("The first two elements")
+section("The first two elements")
 
 function theFirstTwoElements_ReturnOrdinal() {
     yes(ordinal <= 1) // Apply this scenario is when ordinal <= 1.
@@ -60,7 +60,7 @@ function theFirstTwoElements_ReturnOrdinal() {
                    // and sections that follow below.
 }
 
-startSection("The main algorithm")
+section("The main algorithm")
 
 function recurse() {
     return fibonacci(ordinal - 2) + fibonacci(ordinal - 1)

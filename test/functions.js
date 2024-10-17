@@ -1,24 +1,12 @@
-const nodeEval = require('node-eval');
 const path = require("path")
 const fs = require("fs").promises
 const testsCommon = require("./testsCommon")
-const { exampleFile, makeSon } = testsCommon
+const { makeSon, getTmp, testSon } = testsCommon
 
 QUnit.module('Functions');
 
 
-async function makeTmp() {
-    var folder = getTmp()
-    try {
-        await fs.mkdir(folder);
-    } catch (ex) {
-    }    
-}
 
-function getTmp() {
-    var full = path.join(__dirname, "..", "tmp")
-    return path.normalize(full)
-}
 
 testSon("add.js", assert => {
     assert.equal(7, add(2, 3))
@@ -76,31 +64,3 @@ async function runAsyncTest(assert, son) {
     assert.equal("hello", content)
 }
 
-function testSon(filename, callback) {
-    QUnit.test(filename, assert => {
-        var done = assert.async()
-        var son = makeSon()
-        runTest(assert, son, filename, callback).then(() => {
-            done()
-        }).catch(ex => {
-            console.error(ex)
-            assert.true(false)
-            done()
-        })
-    })    
-}
-
-async function runTest(assert, son, filename, callback) {
-    await parseAndLoad(son, filename)
-    callback(assert)
-}
-
-async function parseAndLoad(son, filename) {
-    await makeTmp()
-    var fullName = exampleFile(filename)
-    var output = getTmp() 
-    await son.main(fullName, output)
-    var srcFile = path.join(output, filename)
-    var source = await fs.readFile(srcFile, "utf-8")    
-    nodeEval(source, srcFile)    
-}

@@ -26,7 +26,7 @@ async function mainCore(filename, options) {
         } else {
             config.format = "browser"
         }
-        console.log(config)
+        
         son.inject(path, fs, process, esprima, escodegen, config)
         await son.main(filename, options.output)
     } catch (ex) {
