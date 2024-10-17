@@ -4,7 +4,7 @@ const fs = require("fs").promises
 const testsCommon = require("./testsCommon")
 const { testSon } = testsCommon
 
-QUnit.module('modules');
+QUnit.module('Modules');
 
 
 testSon("myModule.son", assert => {

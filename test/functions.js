@@ -1,7 +1,7 @@
 const path = require("path")
 const fs = require("fs").promises
 const testsCommon = require("./testsCommon")
-const { makeSon, getTmp, testSon } = testsCommon
+const { makeSon, getTmp, testSon, parseAndLoad } = testsCommon
 
 QUnit.module('Functions');
 

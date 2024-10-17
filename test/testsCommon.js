@@ -73,6 +73,7 @@ async function parseAndLoad(son, filename) {
 }
 
 module.exports = {
+    parseAndLoad,
     testSon,
     makeSon,
     getTmp,

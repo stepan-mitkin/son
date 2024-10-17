@@ -11,10 +11,16 @@ function loop(begin, end, callback) {
     }
 }
 
-function compareWithLastAndSwap(array, i, last, storeIndex, compare) {
-    if (compare(array, i, last) < 0) {
-        swap(collection, i, storeIndex);
+function compareWithLastAndSwap(array, left, right, storeIndex, cmp) {
+    if (compare(array, left, right, cmp) < 0) {
+        swap(array, left, storeIndex);
         storeIndex++;
     }    
     return storeIndex
+}
+
+function compare(array, i1, i2, cmp) {
+    var left = array[i1]
+    var right = array[i2]
+    return cmp(left, right)
 }
