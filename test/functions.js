@@ -19,6 +19,7 @@ testSon("fizzbuzz.js", assert => {
     assert.equal(undefined, fizzbuzz(4))
     assert.equal("Buzz", fizzbuzz(5))
     assert.equal("Fizz", fizzbuzz(6))
+    assert.equal("Buzz", fizzbuzz(10))
     assert.equal("FizzBuzz", fizzbuzz(15))
 })
 

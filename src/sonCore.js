@@ -18,7 +18,11 @@ async function main(input, output) {
 
     var feedFile
     try {
-        feedFile = await readJsFile(input)
+        if (input.endsWith(".son")) {
+            feedFile = await readSonFile(input)
+        } else {        
+            feedFile = await readJsFile(input)
+        }
     } catch (ex) {
         ex.filename = input
         throw ex
@@ -102,20 +106,6 @@ async function readJsFile(filename) {
                     arguments: args
                 }
             }
-
-            if (firstCall.name === "module") {
-                var args = []
-                var configuration = extractConfig(firstCall.arguments, args)               
-                body.shift()
-                return {
-                    type: "module",
-                    filename: filename,
-                    body: body,
-                    name: details.name,
-                    arguments: args,
-                    config: configuration
-                }
-            }
         }
     }
 
@@ -127,6 +117,53 @@ async function readJsFile(filename) {
     }
 
 }
+
+async function readSonFile(filename) {
+    var details = path.parse(filename)
+    var content, parsed
+    try {
+        content = await readFile(filename)
+    } catch (ex) {
+        throw new Error("SON0005: could not read source file: " + ex.message)
+    }
+    try {        
+        parsed = esprima.parseModule(content, { loc: true })
+    } catch (ex) {
+        throw new Error("SON0010: error parsing source file: " + ex.message)
+    }
+    
+    var body = parsed.body
+    var before = []
+    var after = []
+    var mod = undefined
+    for (var expr of body) {
+        var call = getCall(expr)
+        if (call && call.name === "module"){
+            var args = []
+            var configuration = extractConfig(call.arguments, args)               
+            body.shift()
+            mod = {
+                type: "module",
+                filename: filename,
+                body: body,
+                name: details.name,
+                arguments: args,
+                config: configuration
+            }
+        } else if (mod) {
+            after.push(expr)
+        } else {
+            before.push(expr)
+        }
+    }
+    if (!mod) {
+        throw new Error("SON0028: a module file must have a module() statement")
+    }
+    mod.body = after
+    mod.before = before
+    return mod
+}
+
 
 function extractConfig(input, output) {
     var configuration = undefined
@@ -503,6 +540,12 @@ function checkConfig(moduleFile) {
 }
 
 function addHeader(moduleFile, blocks) {
+    if (moduleFile.format === "es" || moduleFile.format === "commonjs") {  
+        if (moduleFile.before.length > 0) {
+            pushExpressions(moduleFile.before, blocks)
+            blocks.push("")
+        }
+    }
     if (moduleFile.moduleType === "object") {
         var args = moduleFile.arguments.join(", ")
         var fun = "function " + moduleFile.name + "(" + args + ") {"
@@ -512,9 +555,13 @@ function addHeader(moduleFile, blocks) {
         blocks.push(fun)
         blocks.push("")
     }
-    moduleFile.body.forEach(expr => {
+    pushExpressions(moduleFile.body, blocks)
+}
+
+function pushExpressions(body, blocks) {
+    body.forEach(expr => {
         blocks.push(escodegen.generate(expr))
-    })
+    })    
 }
 
 function addFooter(moduleFile, blocks) {    
@@ -524,11 +571,11 @@ function addFooter(moduleFile, blocks) {
         blocks.push(content)
         blocks.push("}")
         if (moduleFile.format === "commonjs") {
-            blocks.push(escodegen.generate(generateModuleExport(makeId(moduleFile.name))))
+            blocks.push(escodegen.generate(generateModuleExport(makeId(moduleFile.name))) + ";")
         }
     } else {
         if (moduleFile.format === "commonjs") {
-            blocks.push(escodegen.generate(generateModuleExport(generateExportedObject(moduleFile))))
+            blocks.push(escodegen.generate(generateModuleExport(generateExportedObject(moduleFile))) + ";")
         }
     }
     blocks.push("")

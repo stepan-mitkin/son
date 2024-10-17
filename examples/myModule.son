@@ -1,3 +1,5 @@
+var path = require("path")
+
 module(firstName, lastName, {type: "object"})
 
 const secretConstant = "hei"
