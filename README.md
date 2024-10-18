@@ -3,7 +3,7 @@ A scenario-based programming language
 
 ## Description
 
-**Son** is an experimental programming language designed as a subset of JavaScript. It simplifies programming by eliminating complex constructs like branching and loops, allowing only linear algorithms. In Son, each procedure is represented as a set of *plos*, which are individual units of logic. A plot is a scenario that depicts one possible path through the algorithm. The language’s transpiler automatically combines these plos to build the full procedure.
+**Son** is an experimental programming language designed as a subset of JavaScript. It simplifies programming by eliminating complex constructs like branching and loops, allowing only linear algorithms. In Son, each procedure is represented as a set of *plots*, which are individual units of logic. A plot is a scenario that depicts one possible path through the algorithm. The language’s transpiler automatically combines these plos to build the full procedure.
 
 One key advantage of Son is that scenarios are easy to test in isolation, making debugging and verification straightforward. Additionally, anyone with basic JavaScript knowledge can quickly start using Son, thanks to its familiar syntax and streamlined approach.
 
@@ -41,7 +41,7 @@ At runtime, only one plot from each section is executed.
 
 A `return` or `throw` statement terminates the function. In such a case, all remaining sections are skipped.
 
-The matching rules for all plots within a section must be mutually exclusive, meaning only one rule can be true at a time.
+The matching rules for all plots within a section must be mutually exclusive, meaning only the rules of one plot can be true at a time.
 
 The order in which the matching rules are evaluated is important, so ensure they are arranged correctly. 
 
