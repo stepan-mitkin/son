@@ -39,11 +39,11 @@ function getTmp() {
 }
 
 
-function testSon(filename, callback) {
+function testSon(filename, callback, srcFiles) {
     QUnit.test(filename, assert => {
         var done = assert.async()
         var son = makeSon()
-        runTest(assert, son, filename, callback).then(() => {
+        runTest(assert, son, filename, callback, srcFiles).then(() => {
             done()
         }).catch(ex => {
             console.error(ex)
@@ -54,12 +54,12 @@ function testSon(filename, callback) {
 }
 
 
-async function runTest(assert, son, filename, callback) {
-    await parseAndLoad(son, filename)
+async function runTest(assert, son, filename, callback, srcFiles) {
+    await parseAndLoad(son, filename, srcFiles)
     callback(assert)
 }
 
-async function parseAndLoad(son, filename) {
+async function parseAndLoad(son, filename, srcFiles) {
     await makeTmp()
     var fullName = exampleFile(filename)
     var output = getTmp() 
@@ -67,9 +67,15 @@ async function parseAndLoad(son, filename) {
     if (filename.endsWith(".son")) {
         filename = filename.replace(".son", ".js")
     }
-    var srcFile = path.join(output, filename)
-    var source = await fs.readFile(srcFile, "utf-8")    
-    nodeEval(source, srcFile)    
+    if (!srcFiles) {
+        srcFiles = [filename]
+    }
+    for (var file of srcFiles) {
+        var base = path.basename(file)
+        var srcFile = path.join(output, base)
+        var source = await fs.readFile(srcFile, "utf-8")    
+        nodeEval(source, srcFile)
+    }
 }
 
 module.exports = {

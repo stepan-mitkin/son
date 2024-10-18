@@ -1,0 +1,3 @@
+module({type:"object"})
+
+const myValue = 10

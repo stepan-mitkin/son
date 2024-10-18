@@ -16,6 +16,16 @@ async function main(input, output) {
         output = process.cwd()
     }
 
+    var dir = await isDirectory(input)
+    if (dir) {
+        log("Directory mode: " + input)
+        await handleDirectory(input, output)        
+    } else {
+        await handleSingleFile(input, output)
+    }
+}
+
+async function handleSingleFile(input, output) {
     var feedFile
     try {
         if (input.endsWith(".son")) {
@@ -32,7 +42,7 @@ async function main(input, output) {
         log("Single function mode: " + input)
         await handleFunction(feedFile, output)
     } else if(feedFile.type === "module") {
-        log("Module function mode: " + input)
+        log("Module mode: " + input)
         feedFile.format = config.format
         await handleModule(feedFile, output)
     } else {
@@ -132,7 +142,7 @@ async function readSonFile(filename) {
         throw new Error("SON0010: error parsing source file: " + ex.message)
     }
     
-    var body = parsed.body
+    var body = parsed.body    
     var before = []
     var after = []
     var mod = undefined
@@ -140,8 +150,7 @@ async function readSonFile(filename) {
         var call = getCall(expr)
         if (call && call.name === "module"){
             var args = []
-            var configuration = extractConfig(call.arguments, args)               
-            body.shift()
+            var configuration = extractConfig(call.arguments, args)                           
             mod = {
                 type: "module",
                 filename: filename,
@@ -487,18 +496,39 @@ async function getFiles(folder, moduleFile, jsFiles, folders) {
     for (var filename of filenames) {        
         var full = path.normalize(path.join(folder, filename))
         if (full === norm) { continue }
-        var stats = await fs.stat(full)
+        var dir = await isDirectory(full)
         if (filename.endsWith(".son")) {
             throw new Error("SON0027: unexpected .son file in a module subfolder: " + full)
         }
         if (filename.endsWith(".js")) {
             jsFiles[full] = true
-        } else if (stats.isDirectory()) {
+        } else if (dir) {
             folders[full] = true
         }
     }
 }
 
+async function scanFolderForSon(folder, sonFiles, folders) {
+    var filenames = await fs.readdir(folder)
+    for (var filename of filenames) {                
+        var full = path.normalize(path.join(folder, filename))        
+        var dir = await isDirectory(full)        
+        if (dir) {
+            folders.push(full)
+        } else if (filename.endsWith(".son")) {
+            sonFiles.push(full)
+            if (sonFiles.length > 1) {
+                throw new Error("SON0029: several .son files in a folder: " + full)
+            }
+        }
+    }    
+}
+
+
+async function isDirectory(filename) {
+    var stats = await fs.stat(filename)
+    return stats.isDirectory()
+}
 
 async function scanModuleFolder(moduleFile, folder, varContext) {
     var jsFiles = {}
@@ -516,6 +546,7 @@ async function scanModuleFolder(moduleFile, folder, varContext) {
 
 async function addFileToModule(moduleFile, filename, varContext) {
     try {
+        log("Adding file " + filename)
         var file = await readJsFile(filename)
         var context = createVarContextFromModule(varContext)
         if (file.type === "function") {
@@ -523,8 +554,7 @@ async function addFileToModule(moduleFile, filename, varContext) {
             moduleFile.functions.push(file)
         } else if (file.type === "other") {
             moduleFile.others.push(file)
-        }
-        console.log(file.filename, file.type)
+        }        
     } catch (ex) {
         ex.filename = filename
         throw ex
@@ -554,7 +584,7 @@ function addHeader(moduleFile, blocks) {
         }
         blocks.push(fun)
         blocks.push("")
-    }
+    }    
     pushExpressions(moduleFile.body, blocks)
 }
 
@@ -663,6 +693,20 @@ async function handleModule(moduleFile, output) {
 
     var content = blocks.join("\n")
     await saveModuleSource(moduleFile, content, output)
+}
+
+async function handleDirectory(folder, output) {
+    log("Scanning folder " + folder)
+    var sonFiles = []
+    var folders = []
+    await scanFolderForSon(folder, sonFiles, folders)    
+    if (sonFiles.length > 0) {
+        await handleSingleFile(sonFiles[0], output)
+    } else {
+        for (var subfolder of folders) {
+            await handleDirectory(subfolder, output)
+        }
+    }
 }
 
 module.exports = sonCore

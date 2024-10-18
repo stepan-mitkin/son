@@ -8,11 +8,11 @@ QUnit.module('Functions');
 
 
 
-testSon("add.js", assert => {
+testSon("myModule/add.js", assert => {
     assert.equal(7, add(2, 3))
 })
 
-testSon("fizzbuzz.js", assert => {
+testSon("myModule/fizzbuzz.js", assert => {
     assert.equal(undefined, fizzbuzz(1))
     assert.equal(undefined, fizzbuzz(2))
     assert.equal("Fizz", fizzbuzz(3))
@@ -23,7 +23,7 @@ testSon("fizzbuzz.js", assert => {
     assert.equal("FizzBuzz", fizzbuzz(15))
 })
 
-testSon("sortByName.js", assert => {
+testSon("myModule/sortByName.js", assert => {
     var array = [{"name":"A"},{"name":"B"},{"name":"C"}]
     sortByName(array)
     assert.equal('[{"name":"A"},{"name":"B"},{"name":"C"}]', JSON.stringify(array))
@@ -32,7 +32,7 @@ testSon("sortByName.js", assert => {
     assert.equal('[{"name":"A"},{"name":"B"},{"name":"C"}]', JSON.stringify(array))    
 })
 
-testSon("fibonacci.js", assert => {
+testSon("myModule/fibonacci.js", assert => {
     assert.equal(0, fibonacci(0))
     assert.equal(1, fibonacci(1))
     assert.equal(1, fibonacci(1))
@@ -57,8 +57,8 @@ QUnit.test("async/await", assert => {
 })
 
 async function runAsyncTest(assert, son) {
-    await parseAndLoad(son, "readTextFromFile.js")
-    await parseAndLoad(son, "writeTextToFile.js")
+    await parseAndLoad(son, "myModule/readTextFromFile.js")
+    await parseAndLoad(son, "myModule/writeTextToFile.js")
     var filename = path.join(getTmp(), "hello.txt")
     await writeTextToFile(fs, filename, "hello")
     var content = await readTextFromFile(fs, filename)

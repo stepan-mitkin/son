@@ -7,7 +7,7 @@ const { testSon } = testsCommon
 QUnit.module('Modules');
 
 
-testSon("myModule.son", assert => {
+testSon("myModule/myModule.son", assert => {
     var mod = myModule("Dar", "Veter")
     assert.equal("Dar Veter", mod.getNames())
     mod.setNames("Darth", "Vader")
@@ -28,3 +28,10 @@ testSon("myModule.son", assert => {
     assert.equal(3, array[2])
     assert.equal(4, array[3])
 })
+
+testSon("examples2", assert => {
+    var mod1 = proj1()
+    var mod2 = proj2()
+    assert.equal(10, mod1.getMyValue())
+    assert.equal(20, mod2.getMyValue())
+}, ["proj1.js", "proj2.js"])

@@ -20,6 +20,7 @@ tailTest("son0022/argumentsNotUnique.js");
 tailTest("son0025/badModuleType.js");
 tailTest("son0026/twoConfigs.js");
 tailTest("son0027/top.js");
+tailTest("son0029");
 
 
 function tailTest(filename) {
