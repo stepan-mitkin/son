@@ -21,7 +21,12 @@ tailTest("son0025/badModuleType.js");
 tailTest("son0026/twoConfigs.js");
 tailTest("son0027/top.js");
 tailTest("son0029");
-
+tailTest("son0030");
+tailTest("son0031");
+tailTest("son0032_setProp_fromFunction");
+tailTest("son0032_setFunction_fromProp");
+tailTest("son0034_computeNotProperty");
+tailTest("son0035_cycle");
 
 function tailTest(filename) {
     QUnit.test(filename, function (assert) {

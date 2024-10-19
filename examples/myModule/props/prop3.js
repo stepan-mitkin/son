@@ -1,0 +1,3 @@
+prop()
+
+return 30

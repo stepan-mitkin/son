@@ -27,6 +27,7 @@ testSon("myModule/myModule.son", assert => {
     assert.equal(2, array[1])
     assert.equal(3, array[2])
     assert.equal(4, array[3])
+    assert.equal(73, mod.runProp())
 })
 
 testSon("examples2", assert => {

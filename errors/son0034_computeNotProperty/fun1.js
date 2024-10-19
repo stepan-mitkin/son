@@ -1,0 +1,3 @@
+fun()
+
+return 1

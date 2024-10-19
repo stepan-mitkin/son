@@ -1,7 +1,8 @@
-const {collectDeclarations, processAst, prependVariables, makeFunction,
-    parseStructure, createReturnObject, makeId,
-    makeReturn} = require("./ast")
-const { getCall, getLine, addToSet } = require("./common")
+const { collectDeclarations, processAst, prependVariables, makeFunction,
+    makeFunctionCall, makeAssign,
+    parseStructure, createReturnObject, makeId, createVariableDeclaration,
+    decorateComputeAll, makeReturn } = require("./ast")
+const { getCall, getLine, addToSet, topologicaSort } = require("./common")
 const sectionBuilder = require("./sectionBuilder")
 var path, fs, process, esprima, config, escodegen
 
@@ -19,7 +20,7 @@ async function main(input, output) {
     var dir = await isDirectory(input)
     if (dir) {
         log("Directory mode: " + input)
-        await handleDirectory(input, output)        
+        await handleDirectory(input, output)
     } else {
         await handleSingleFile(input, output)
     }
@@ -30,7 +31,7 @@ async function handleSingleFile(input, output) {
     try {
         if (input.endsWith(".son")) {
             feedFile = await readSonFile(input)
-        } else {        
+        } else {
             feedFile = await readJsFile(input)
         }
     } catch (ex) {
@@ -41,13 +42,13 @@ async function handleSingleFile(input, output) {
     if (feedFile.type === "function") {
         log("Single function mode: " + input)
         await handleFunction(feedFile, output)
-    } else if(feedFile.type === "module") {
+    } else if (feedFile.type === "module") {
         log("Module mode: " + input)
         feedFile.format = config.format
         await handleModule(feedFile, output)
     } else {
         var error = new Error("SON0006: File type not supported: " + input)
-        error.filename = input  
+        error.filename = input
         throw error
     }
 }
@@ -56,7 +57,10 @@ function createVarContext() {
     return {
         variables: {},
         declarations: {},
-        fields: {}
+        fields: {},
+        deps: {},
+        algos: {},
+        computes: {}
     }
 }
 
@@ -64,7 +68,10 @@ function createVarContextFromModule(moduleContext) {
     var result = {
         variables: {},
         declarations: {},
-        fields: {}
+        fields: {},
+        deps: {},
+        algos: moduleContext.algos,
+        computes: moduleContext.computes
     }
 
     Object.assign(result.declarations, moduleContext.declarations)
@@ -78,12 +85,11 @@ async function readFile(filename) {
     return await fs.readFile(filename, "utf-8")
 }
 
-async function writeFile(filename, data) {    
+async function writeFile(filename, data) {
     await fs.writeFile(filename, data, "utf-8")
 }
 
 async function readJsFile(filename) {
-
     var details = path.parse(filename)
     var content, parsed
     try {
@@ -101,7 +107,7 @@ async function readJsFile(filename) {
     if (body.length !== 0) {
         var firstCall = getCall(body[0])
         if (firstCall) {
-            if (firstCall.name === "fun"|| firstCall.name === "pfun") {
+            if (firstCall.name === "fun" || firstCall.name === "pfun") {
                 var args = firstCall.arguments.map(ensureIdentifier)
                 if (!areUnique(args)) {
                     throw new Error("SON0022: parameter names are not unique. Line " + firstCall.line)
@@ -114,6 +120,19 @@ async function readJsFile(filename) {
                     body: body,
                     name: details.name,
                     arguments: args
+                }
+            }
+            if (firstCall.name === "prop") {
+                if (firstCall.arguments.length !== 0) {
+                    throw new Error("SON0030: a property cannot have arguments. Line " + firstCall.line)
+                }
+                body.shift()
+                return {
+                    type: "property",
+                    filename: filename,
+                    body: body,
+                    name: details.name,
+                    arguments: []
                 }
             }
         }
@@ -136,21 +155,21 @@ async function readSonFile(filename) {
     } catch (ex) {
         throw new Error("SON0005: could not read source file: " + ex.message)
     }
-    try {        
+    try {
         parsed = esprima.parseModule(content, { loc: true })
     } catch (ex) {
         throw new Error("SON0010: error parsing source file: " + ex.message)
     }
-    
-    var body = parsed.body    
+
+    var body = parsed.body
     var before = []
     var after = []
     var mod = undefined
     for (var expr of body) {
         var call = getCall(expr)
-        if (call && call.name === "module"){
+        if (call && call.name === "module") {
             var args = []
-            var configuration = extractConfig(call.arguments, args)                           
+            var configuration = extractConfig(call.arguments, args)
             mod = {
                 type: "module",
                 filename: filename,
@@ -191,9 +210,9 @@ function extractConfig(input, output) {
             }
             configuration = parseStructure(arg)
         } else {
-            throw new Error("SON0011: expected identifier or config, got " + arg.type + ". Line " + getLine(arg))    
+            throw new Error("SON0011: expected identifier or config, got " + arg.type + ". Line " + getLine(arg))
         }
-    }    
+    }
     return configuration || {}
 }
 
@@ -207,8 +226,8 @@ function ensureIdentifier(node) {
 
 async function handleFunction(file, output) {
     try {
-        var varContext = createVarContext()    
-        var bigAst = generateFunction(file, varContext)
+        file.varContext = createVarContext()
+        var bigAst = generateFunction(file)
         var generated = escodegen.generate(bigAst) + "\n"
         var filename = path.join(output, file.name + ".js")
         await writeFile(filename, generated)
@@ -218,8 +237,18 @@ async function handleFunction(file, output) {
     }
 }
 
-function generateFunction(file, varContext) {
-    prepareAst(file, varContext)    
+function generateFunctionWrapped(file) {    
+    try {
+        file.ast = generateFunction(file)
+    } catch (ex) {
+        ex.filename = file.filename
+        throw ex
+    }
+}
+
+function generateFunction(file) {
+    var varContext = file.varContext
+    prepareAst(file, varContext)
     var machine = sectionBuilder()
     for (var i = 0; i < file.body.length; i++) {
         var expr = file.body[i]
@@ -231,14 +260,22 @@ function generateFunction(file, varContext) {
     ensureUniqueSections(file.sections)
     ensureUniquePlots(file.sections)
     for (var section of file.sections) {
-        section.tree = mergeScenarios(section.plots)        
+        section.tree = mergeScenarios(section.plots)
     }
     var body = buildBodyFromSections(file.sections)
-    var bigAst = makeFunction(file.name, file.arguments, body)
+    var name = file.name
+    if (file.type === "property") {
+        name = decorateProperty(name)
+    }    
+    var bigAst = makeFunction(name, file.arguments, body)
     if (file.hasAwait) {
         bigAst.async = true
     }
     return bigAst
+}
+
+function decorateProperty(name) {
+    return "__compute_" + name
 }
 
 function buildBodyFromSections(sections) {
@@ -254,23 +291,24 @@ function appendSectionToBody(section, body) {
 
 
 
-function prepareAst(file, varContext) {    
+function prepareAst(file, varContext) {
     addToSet(file.arguments, varContext.declarations)
-    file.body.forEach(expr => {extractVariables(expr, varContext.declarations)})
-    file.body = file.body.map(expr => {return transformStatement(expr, varContext)})    
+    file.body.forEach(expr => { extractVariables(expr, varContext.declarations) })
+    file.body = file.body.map(expr => { return transformStatement(expr, varContext) })
     prependVariables(file.body, varContext.variables)
     file.hasAwait = varContext.hasAwait
+    file.deps = varContext.deps    
 }
 
 function collectDeclarationsFromBody(body, declarations) {
-    body.forEach(st => {collectDeclarations(st, declarations)})
+    body.forEach(st => { collectDeclarations(st, declarations) })
 }
 
 function processAstInBody(body, varContext) {
-    return body.map(st => {return processAst(st, varContext)})
+    return body.map(st => { return processAst(st, varContext) })
 }
 
-function extractVariables(expr, declarations) {    
+function extractVariables(expr, declarations) {
     if (expr.type === "FunctionDeclaration") {
         collectDeclarationsFromBody(expr.body.body, declarations)
     } else {
@@ -308,7 +346,7 @@ function mergeNodes(main, addition) {
     if (!main || !addition) {
         return
     }
-    
+
     if (main.type !== addition.type || main.text !== addition.text) {
         throw new Error("SON0022: plots are not mutually exclusive. Line " + addition.line)
     }
@@ -358,23 +396,23 @@ function appendNodeToBody(node, body) {
         }
         else {
             upper = node.right
-            lower = node.down            
+            lower = node.down
         }
         var ifStatement = makeIfStatement(node.expression, upper, lower)
         body.push(ifStatement)
     } else {
         body.push(node.expression)
         appendNodeToBody(node.down, body)
-    }    
+    }
 }
 
 function makeIfStatement(condition, upper, lower) {
-    var ifStatement  = {
+    var ifStatement = {
         type: "IfStatement",
         test: condition,
         consequent: {
-          type: "BlockStatement",
-          body: []
+            type: "BlockStatement",
+            body: []
         },
         alternate: null
     }
@@ -410,7 +448,7 @@ function printList(node, depth) {
                 printList(node.down, depth + 1)
             }
             console.log(indent, "end")
-        }           
+        }
     } else {
         console.log(indent, node.text)
         printList(node.down, depth)
@@ -493,7 +531,7 @@ function areUnique(items) {
 async function getFiles(folder, moduleFile, jsFiles, folders) {
     var norm = path.normalize(moduleFile.filename)
     var filenames = await fs.readdir(folder)
-    for (var filename of filenames) {        
+    for (var filename of filenames) {
         var full = path.normalize(path.join(folder, filename))
         if (full === norm) { continue }
         var dir = await isDirectory(full)
@@ -510,9 +548,9 @@ async function getFiles(folder, moduleFile, jsFiles, folders) {
 
 async function scanFolderForSon(folder, sonFiles, folders) {
     var filenames = await fs.readdir(folder)
-    for (var filename of filenames) {                
-        var full = path.normalize(path.join(folder, filename))        
-        var dir = await isDirectory(full)        
+    for (var filename of filenames) {
+        var full = path.normalize(path.join(folder, filename))
+        var dir = await isDirectory(full)
         if (dir) {
             folders.push(full)
         } else if (filename.endsWith(".son")) {
@@ -521,7 +559,7 @@ async function scanFolderForSon(folder, sonFiles, folders) {
                 throw new Error("SON0029: several .son files in a folder: " + full)
             }
         }
-    }    
+    }
 }
 
 
@@ -548,17 +586,29 @@ async function addFileToModule(moduleFile, filename, varContext) {
     try {
         log("Adding file " + filename)
         var file = await readJsFile(filename)
-        var context = createVarContextFromModule(varContext)
+        file.varContext = createVarContextFromModule(varContext)
         if (file.type === "function") {
-            file.ast = generateFunction(file, context)            
+            file.varContext.prop = false
             moduleFile.functions.push(file)
+            addToAlgos(moduleFile, file)
+        } else if (file.type === "property") {
+            file.varContext.prop = true
+            moduleFile.properties.push(file)
+            addToAlgos(moduleFile, file)
         } else if (file.type === "other") {
             moduleFile.others.push(file)
-        }        
+        }
     } catch (ex) {
         ex.filename = filename
         throw ex
     }
+}
+
+function addToAlgos(moduleFile, file) {
+    if (file.name in moduleFile.algos) {
+        throw new Error("SON0031: function name is not unique: " + file.name)
+    }
+    moduleFile.algos[file.name] = file
 }
 
 function checkConfig(moduleFile) {
@@ -570,7 +620,7 @@ function checkConfig(moduleFile) {
 }
 
 function addHeader(moduleFile, blocks) {
-    if (moduleFile.format === "es" || moduleFile.format === "commonjs") {  
+    if (moduleFile.format === "es" || moduleFile.format === "commonjs") {
         if (moduleFile.before.length > 0) {
             pushExpressions(moduleFile.before, blocks)
             blocks.push("")
@@ -584,17 +634,17 @@ function addHeader(moduleFile, blocks) {
         }
         blocks.push(fun)
         blocks.push("")
-    }    
+    }
     pushExpressions(moduleFile.body, blocks)
 }
 
 function pushExpressions(body, blocks) {
     body.forEach(expr => {
         blocks.push(escodegen.generate(expr))
-    })    
+    })
 }
 
-function addFooter(moduleFile, blocks) {    
+function addFooter(moduleFile, blocks) {
     if (moduleFile.moduleType === "object") {
         var ast = makeReturn(generateExportedObject(moduleFile))
         var content = escodegen.generate(ast)
@@ -616,31 +666,27 @@ function generateModuleExport(exports) {
         "type": "AssignmentExpression",
         "operator": "=",
         "left": {
-          "type": "MemberExpression",
-          "computed": false,
-          "object": {
-            "type": "Identifier",
-            "name": "module"
-          },
-          "property": {
-            "type": "Identifier",
-            "name": "exports"
-          }
+            "type": "MemberExpression",
+            "computed": false,
+            "object": {
+                "type": "Identifier",
+                "name": "module"
+            },
+            "property": {
+                "type": "Identifier",
+                "name": "exports"
+            }
         },
         "right": exports
     }
 }
 
 function generateExportedObject(moduleFile) {
-    var lines = moduleFile.functions.map(fun => { return fun.name })
+    var lines = moduleFile.functions
+        .filter(fun => {return !fun.private})
+        .map(fun => { return fun.name })
     return createReturnObject(lines)
 }
-
-function isPublic(fun) {
-    return !fun.private
-}
-
-
 
 function addOtherBlock(other, blocks) {
     blocks.push(other.content)
@@ -665,30 +711,83 @@ async function saveModuleSource(moduleFile, content, output) {
     await writeFile(filename, content)
 }
 
-async function handleModule(moduleFile, output) {    
+function addPropertyVariables(moduleFile, blocks) {
+    var names = moduleFile.properties.map(prop => prop.name)
+    if (names.length !== 0) {
+        var declare = createVariableDeclaration(names)
+        var src = escodegen.generate(declare)
+        blocks.push(src)
+    }
+}
+
+function generateInvokeCalculate(name) {
+    return makeAssign(
+        makeId(name),
+        makeFunctionCall(makeId(decorateProperty(name)), [])
+    )
+}
+
+function generateCompute(moduleFile, name) {    
+    var prop = moduleFile.algos[name]
+    var sortedDeps = getAllDeps(moduleFile, prop)
+    var deps = sortedDeps.map(generateInvokeCalculate)
+    var fun = {
+        ast:makeFunction(decorateComputeAll(name), [], deps),
+        private:true
+    } 
+    moduleFile.functions.push(fun)
+}
+
+function getAllDeps(moduleFile, prop) {
+    var start = prop.name
+    var getAdjacentNodes = key => {
+        var current = moduleFile.algos[key]
+        return Object.keys(current.deps)
+    }
+    var reportError = (key, message) => {
+        var current = moduleFile.algos[key]
+        throw new Error("SON0035: detected a cycle in property dependencies: " + message + ". File " + current.filename)
+    }
+    var deps = topologicaSort(start, getAdjacentNodes, reportError)
+    return deps.filter(dep => { return moduleFile.algos[dep].type === "property"})
+}
+
+async function handleModule(moduleFile, output) {
     try {
         moduleFile.functions = []
+        moduleFile.properties = []
         moduleFile.others = []
-        
+        moduleFile.algos = {}
+        moduleFile.computes = {}
+
         checkConfig(moduleFile)
-        moduleFile.fullPath = path.normalize(moduleFile.filename)    
+        moduleFile.fullPath = path.normalize(moduleFile.filename)
         var varContext = createVarContext()
+        varContext.algos = moduleFile.algos        
+        varContext.computes = moduleFile.computes        
         addToSet(moduleFile.arguments, varContext.declarations)
         collectDeclarationsFromBody(moduleFile.body, varContext.declarations)
         moduleFile.body = processAstInBody(moduleFile.body, varContext)
         prependVariables(moduleFile.body, varContext.variables)
-        
+
         var folder = path.dirname(moduleFile.filename)
     } catch (ex) {
         ex.filename = moduleFile.filename
         throw ex
     }
-    await scanModuleFolder(moduleFile, folder, varContext)
+    await scanModuleFolder(moduleFile, folder, varContext)        
+    moduleFile.functions.forEach(generateFunctionWrapped)
+    moduleFile.properties.forEach(generateFunctionWrapped)    
+    for (var name in moduleFile.computes) {
+        generateCompute(moduleFile, name)
+    }
 
     var blocks = []
     addHeader(moduleFile, blocks)
+    addPropertyVariables(moduleFile, blocks)    
     moduleFile.others.forEach(other => addOtherBlock(other, blocks))
     moduleFile.functions.forEach(fun => addFunctionBlock(moduleFile, fun, blocks))
+    moduleFile.properties.forEach(prop => addFunctionBlock(moduleFile, prop, blocks))
     addFooter(moduleFile, blocks)
 
     var content = blocks.join("\n")
@@ -699,7 +798,7 @@ async function handleDirectory(folder, output) {
     log("Scanning folder " + folder)
     var sonFiles = []
     var folders = []
-    await scanFolderForSon(folder, sonFiles, folders)    
+    await scanFolderForSon(folder, sonFiles, folders)
     if (sonFiles.length > 0) {
         await handleSingleFile(sonFiles[0], output)
     } else {

@@ -1,0 +1,3 @@
+fun()
+
+compute(prop1)

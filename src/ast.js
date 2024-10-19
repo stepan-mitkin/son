@@ -25,14 +25,14 @@ function addSelf(node) {
 }
 function cloneAst(node, context) {
     var copy = {};
-    for (var key in node) {                
-        var value = node[key];                
+    for (var key in node) {
+        var value = node[key];
         var value2
         if (Array.isArray(value)) {
             value2 = value.map(element => {
-                return processAst(element, context);                        
-            });                    
-        } else if (typeof value === 'object' && value) { 
+                return processAst(element, context);
+            });
+        } else if (typeof value === 'object' && value) {
             value2 = processAst(value, context);
         } else {
             value2 = value
@@ -50,19 +50,19 @@ function collectDeclarations(node, declarations) {
             declarations[decl.id.name] = true;
         });
     }
-    for (var key in node) {                
-        var value = node[key];                        
+    for (var key in node) {
+        var value = node[key];
         if (Array.isArray(value)) {
             value.forEach(element => {
                 collectDeclarations(element, declarations);
-            });                   
-        } else if (typeof value === 'object' && value) { 
+            });
+        } else if (typeof value === 'object' && value) {
             collectDeclarations(value, declarations);
         }
     }
     if (isFunction(node)) {
         node.declarations = declarations;
-    }    
+    }
 }
 
 function cloneContextForFunction(node, old) {
@@ -70,16 +70,21 @@ function cloneContextForFunction(node, old) {
     context = {
         variables: {},
         declarations: {},
-        fields: old.fields
+        fields: old.fields,
+        algos: old.algos,
+        deps: old.deps,
+        computes: old.computes
     };
     Object.assign(context.declarations, old.declarations);
     Object.assign(context.declarations, node.declarations);
     Object.assign(context.declarations, old.variables);
     return context;
 }
+
 function getLine(node) {
     return node.loc.start.line;
 }
+
 function processAst(node, context) {
     if (isFunction(node)) {
         var context2 = cloneContextForFunction(node, context);
@@ -91,11 +96,14 @@ function processAst(node, context) {
     if (type === 'Identifier') {
         var name = node.name;
         if (name in context.fields) {
-            return addSelf(node);            
+            return addSelf(node);
         } else {
+            if (name in context.algos) {
+                context.deps[name] = true
+            }
             return node;
         }
-    }    
+    }
 
     if (type === 'MemberExpression') {
         var property
@@ -113,34 +121,92 @@ function processAst(node, context) {
             ),
             property: property,
             computed: node.computed
-        }        
-    }    
+        }
+    }
 
     if (type === "AwaitExpression") {
         context.hasAwait = true
-        return cloneAst(node, context)    
+        return cloneAst(node, context)
     }
 
     if (type === 'AssignmentExpression') {
         if (node.left.type === 'Identifier') {
             var name = node.left.name;
+            if (name in context.algos) {
+                throw new Error("SON0032: cannot set properties and functions in code: " + name + ". Line" + getLine(node))
+            }
             if (!(name in context.declarations) && !(name in context.fields)) {
                 context.variables[name] = true;
             }
         }
         return cloneAst(node, context)
-    }    
+    }
 
-    if (type === 'IfStatement' 
-    || type === 'ForOfStatement'
-    || type === 'ForInStatement'
-    || type === 'ForStatement'
-    || type === 'SwitchStatement') {
+    if (type === 'IfStatement'
+        || type === 'ForOfStatement'
+        || type === 'ForInStatement'
+        || type === 'ForStatement'
+        || type === 'SwitchStatement') {
         line = getLine(node);
         throw new Error(node.type + ' is not allowed in Son. Line: ' + line);
     }
 
+    if (type === "ExpressionStatement") {
+        var expression = node.expression
+        if (expression.type === "CallExpression") {
+            var callee = expression.callee
+            if (callee.type === "Identifier" && callee.name === "compute") {
+                return handleCompute(expression, context)
+            }
+        }
+    }
+
     return cloneAst(node, context)
+}
+
+function handleCompute(expression, context) {
+    var args = expression.arguments
+    var computed = undefined
+    if (args.length === 1) {
+        var first = args[0]
+        if (first.type === "Identifier") {
+            computed = first.name
+        }
+    }
+    if (!computed) {
+        throw new Error("SON0033: compute() expects a property name as an argument. Line " + getLine(expression))
+    }
+
+    var algo = context.algos[computed]
+    if (!algo || algo.type !== "property") {
+        throw new Error("SON0034: compute() can be applied only to computed properties. Line " + getLine(expression))
+    }
+
+    context.computes[computed] = true
+    return createSimpleCall(decorateComputeAll(computed), [])
+}
+
+function createDummyLoc() {
+    return {
+        start: { line: 1 }
+    }
+}
+
+function createSimpleCall(name, arguments) {
+    return {
+        type: "ExpressionStatement",
+        loc: createDummyLoc(),
+        expression: {
+            type: "CallExpression",
+            loc: createDummyLoc(),
+            callee: makeId(name),
+            arguments: arguments
+        }
+    }
+}
+
+function decorateComputeAll(name) {
+    return "__computeAll_" + name
 }
 
 function makeId(name) {
@@ -165,23 +231,27 @@ function makeFunction(name, params, body) {
     }
 }
 
-function prependVariables(body, variables) {
+function createVariableDeclaration(variables) {
     var declare = {
         type: "VariableDeclaration",
         kind: "var",
         declarations: [],
-        loc: {
-            start: {line:1}
-        }
+        loc: createDummyLoc()
     }
-    
-    for (var variable in variables) {                
+
+    for (var variable of variables) {
         declare.declarations.push({
             type: "VariableDeclarator",
             id: makeId(variable),
             init: null
         })
     }
+    return declare
+}
+
+function prependVariables(body, variables) {
+    var vars = Object.keys(variables)
+    var declare = createVariableDeclaration(vars)
     if (declare.declarations.length > 0) {
         body.unshift(declare)
     }
@@ -207,7 +277,7 @@ function getPropertyValue(property) {
 
     if (property.value.type === "ObjectExpression") {
         return parseStructure(property.value)
-    }    
+    }
 
     throw new Error("SON0025: unexpected value type: " + property.value.type + ". Line " + getLine(property))
 }
@@ -253,6 +323,26 @@ function makeReturn(argument) {
     }
 }
 
+function makeFunctionCall(callee, args) {
+    return {
+        "type": "CallExpression",
+        "callee": callee,
+        "arguments": args
+    }
+}
+
+function makeAssign(left, right) {
+    return {
+        "type": "ExpressionStatement",
+        "expression": {
+            "type": "AssignmentExpression",
+            "operator": "=",
+            "left": left,
+            "right": right
+        }
+    }
+}
+
 module.exports = {
     collectDeclarations,
     processAst,
@@ -261,5 +351,8 @@ module.exports = {
     parseStructure,
     makeReturn,
     createReturnObject,
+    createVariableDeclaration,
+    decorateComputeAll,    
+    makeFunctionCall, makeAssign,
     makeId
 }
