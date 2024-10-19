@@ -1,3 +1,3 @@
 prop()
 
-return await io.readFile("hello.txt", "utf-8")
+return await io.readFile(filename, "utf-8")

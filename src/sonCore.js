@@ -227,6 +227,7 @@ function ensureIdentifier(node) {
 async function handleFunction(file, output) {
     try {
         file.varContext = createVarContext()
+        prepareAst(file)
         var bigAst = generateFunction(file)
         var generated = escodegen.generate(bigAst) + "\n"
         var filename = path.join(output, file.name + ".js")
@@ -247,8 +248,8 @@ function generateFunctionWrapped(file) {
 }
 
 function generateFunction(file) {
-    var varContext = file.varContext
-    prepareAst(file, varContext)
+    var varContext = file.varContext    
+    buildAst(file, varContext)
     var machine = sectionBuilder()
     for (var i = 0; i < file.body.length; i++) {
         var expr = file.body[i]
@@ -291,28 +292,36 @@ function appendSectionToBody(section, body) {
 
 
 
-function prepareAst(file, varContext) {
+function prepareAst(file) {    
+    var varContext = file.varContext
     addToSet(file.arguments, varContext.declarations)
-    file.body.forEach(expr => { extractVariables(expr, varContext.declarations) })
-    file.body = file.body.map(expr => { return transformStatement(expr, varContext) })
-    prependVariables(file.body, varContext.variables)
+    file.body.forEach(expr => { extractVariables(expr, varContext) })
     file.hasAwait = varContext.hasAwait
-    file.deps = varContext.deps    
+    file.deps = varContext.deps
 }
 
-function collectDeclarationsFromBody(body, declarations) {
-    body.forEach(st => { collectDeclarations(st, declarations) })
+function buildAst(file, varContext) {
+    file.body = file.body.map(expr => { return transformStatement(expr, varContext) })
+    prependVariables(file.body, varContext.variables)
+    if (varContext.hasAwait) {
+        file.hasAwait = true
+    }
+}
+
+
+function collectDeclarationsFromBody(body, varContext) {
+    body.forEach(st => { collectDeclarations(st, varContext) })
 }
 
 function processAstInBody(body, varContext) {
     return body.map(st => { return processAst(st, varContext) })
 }
 
-function extractVariables(expr, declarations) {
+function extractVariables(expr, varContext) {
     if (expr.type === "FunctionDeclaration") {
-        collectDeclarationsFromBody(expr.body.body, declarations)
+        collectDeclarationsFromBody(expr.body.body, varContext)
     } else {
-        collectDeclarations(expr, declarations)
+        collectDeclarations(expr, varContext)
     }
 }
 
@@ -720,12 +729,11 @@ function addPropertyVariables(moduleFile, blocks) {
     }
 }
 
-function generateInvokeCalculate(moduleFile, name, output) {
+function generateInvokeCalculate(moduleFile, name) {
     var prop = moduleFile.algos[name]
     var call = makeFunctionCall(makeId(decorateProperty(name)), [])
     if (prop.ast.async) {
-        call = makeAwait(call)
-        output.async = true
+        call = makeAwait(call)        
     }
     return makeAssign(
         makeId(name),
@@ -733,16 +741,31 @@ function generateInvokeCalculate(moduleFile, name, output) {
     )
 }
 
-function generateCompute(moduleFile, name) {    
-    var prop = moduleFile.algos[name]
+function collectDeps(moduleFile) {
+    for (var prop of moduleFile.properties) {
+        collectDepsForProp(moduleFile, prop)
+    }
+}
+
+function collectDepsForProp(moduleFile, prop) {
     var sortedDeps = getAllDeps(moduleFile, prop)
-    var obj = {async: false}
-    var deps = sortedDeps.map(name => {return generateInvokeCalculate(moduleFile, name, obj)})
+    for (var dep of sortedDeps) {
+        var dependency = moduleFile.algos[dep]
+        if (dependency.hasAwait) {
+            prop.hasAwaitInDep = true
+        }
+    }
+    prop.sortedDeps = sortedDeps
+}
+
+function generateCompute(moduleFile, name) {    
+    var prop = moduleFile.algos[name]        
+    var deps = prop.sortedDeps.map(name => {return generateInvokeCalculate(moduleFile, name)})
     var fun = {
         ast: makeFunction(decorateComputeAll(name), [], deps),
         private:true        
     } 
-    if (obj.async) {
+    if (prop.hasAwaitInDep) {
         fun.ast.async = true
     }
     moduleFile.functions.push(fun)
@@ -762,6 +785,21 @@ function getAllDeps(moduleFile, prop) {
     return deps.filter(dep => { return moduleFile.algos[dep].type === "property"})
 }
 
+function prepareAsts(moduleFile) {
+    for (var name in moduleFile.algos) {        
+        var file = moduleFile.algos[name]        
+        prepareAst(file)
+    }
+}
+
+function buildAsts(moduleFile) {
+    for (var name in moduleFile.algos) {
+        var file = moduleFile.algos[name]
+        generateFunctionWrapped(file)        
+    }
+}
+
+
 async function handleModule(moduleFile, output) {
     try {
         moduleFile.functions = []
@@ -776,7 +814,7 @@ async function handleModule(moduleFile, output) {
         varContext.algos = moduleFile.algos        
         varContext.computes = moduleFile.computes        
         addToSet(moduleFile.arguments, varContext.declarations)
-        collectDeclarationsFromBody(moduleFile.body, varContext.declarations)
+        collectDeclarationsFromBody(moduleFile.body, varContext)
         moduleFile.body = processAstInBody(moduleFile.body, varContext)
         prependVariables(moduleFile.body, varContext.variables)
 
@@ -786,8 +824,11 @@ async function handleModule(moduleFile, output) {
         throw ex
     }
     await scanModuleFolder(moduleFile, folder, varContext)        
-    moduleFile.functions.forEach(generateFunctionWrapped)
-    moduleFile.properties.forEach(generateFunctionWrapped)    
+
+    prepareAsts(moduleFile)
+    collectDeps(moduleFile)
+    buildAsts(moduleFile)
+
     for (var name in moduleFile.computes) {
         generateCompute(moduleFile, name)
     }
@@ -803,6 +844,8 @@ async function handleModule(moduleFile, output) {
     var content = blocks.join("\n")
     await saveModuleSource(moduleFile, content, output)
 }
+
+
 
 async function handleDirectory(folder, output) {
     log("Scanning folder " + folder)

@@ -1,3 +1,4 @@
+var {shallowClone} = require("./common")
 
 function isFunction(node) {
     var type = node.type
@@ -42,26 +43,36 @@ function cloneAst(node, context) {
     return copy
 }
 
-function collectDeclarations(node, declarations) {
+function collectDeclarations(node, varContext) {    
+    var type = node.type
     if (isFunction(node)) {
-        declarations = {};
+        varContext = shallowClone(varContext)
+        varContext.declarations = {}
     } else if (node.type === 'VariableDeclaration') {
         node.declarations.forEach(decl => {
-            declarations[decl.id.name] = true;
+            varContext.declarations[decl.id.name] = true;
         });
+    } else if (type === "AwaitExpression") {
+        varContext.hasAwait = true
+    } else if (type === 'Identifier') {
+        var name = node.name;
+        if (name in varContext.algos) {
+            varContext.deps[name] = true
+        }
     }
+
     for (var key in node) {
         var value = node[key];
         if (Array.isArray(value)) {
             value.forEach(element => {
-                collectDeclarations(element, declarations);
+                collectDeclarations(element, varContext);
             });
         } else if (typeof value === 'object' && value) {
-            collectDeclarations(value, declarations);
+            collectDeclarations(value, varContext);
         }
     }
     if (isFunction(node)) {
-        node.declarations = declarations;
+        node.declarations = varContext.declarations;
     }
 }
 
@@ -93,17 +104,6 @@ function processAst(node, context) {
         return result;
     }
     var type = node.type
-    if (type === 'Identifier') {
-        var name = node.name;
-        if (name in context.fields) {
-            return addSelf(node);
-        } else {
-            if (name in context.algos) {
-                context.deps[name] = true
-            }
-            return node;
-        }
-    }
 
     if (type === 'MemberExpression') {
         var property
@@ -122,11 +122,6 @@ function processAst(node, context) {
             property: property,
             computed: node.computed
         }
-    }
-
-    if (type === "AwaitExpression") {
-        context.hasAwait = true
-        return cloneAst(node, context)
     }
 
     if (type === 'AssignmentExpression') {
@@ -180,8 +175,14 @@ function handleCompute(expression, context) {
     }
 
     context.computes[computed] = true
-    return createSimpleCall(decorateComputeAll(computed), [])
+    var call = createSimpleCall(decorateComputeAll(computed), [])
+    if (algo.hasAwaitInDep) {
+        context.hasAwait = true
+        return makeAwait(call)
+    }
+    return call
 }
+
 
 function createDummyLoc() {
     return {

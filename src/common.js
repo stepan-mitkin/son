@@ -58,9 +58,16 @@ function topologicaSortCore(context, key, crumbs) {
     context.output.push(key)
 }
 
+function shallowClone(obj) {
+    var result = {}
+    Object.assign(result, obj)
+    return result
+}
+
 module.exports = {
     topologicaSort,
     addToSet,
     getCall,
-    getLine
+    getLine,
+    shallowClone
 }
