@@ -151,13 +151,10 @@ function processAst(node, context) {
         throw new Error(node.type + ' is not allowed in Son. Line: ' + line);
     }
 
-    if (type === "ExpressionStatement") {
-        var expression = node.expression
-        if (expression.type === "CallExpression") {
-            var callee = expression.callee
-            if (callee.type === "Identifier" && callee.name === "compute") {
-                return handleCompute(expression, context)
-            }
+    if (type === "CallExpression") {
+        var callee = node.callee
+        if (callee.type === "Identifier" && callee.name === "compute") {
+            return handleCompute(node, context)
         }
     }
 
@@ -194,14 +191,10 @@ function createDummyLoc() {
 
 function createSimpleCall(name, arguments) {
     return {
-        type: "ExpressionStatement",
+        type: "CallExpression",
         loc: createDummyLoc(),
-        expression: {
-            type: "CallExpression",
-            loc: createDummyLoc(),
-            callee: makeId(name),
-            arguments: arguments
-        }
+        callee: makeId(name),
+        arguments: arguments        
     }
 }
 
@@ -343,6 +336,13 @@ function makeAssign(left, right) {
     }
 }
 
+function makeAwait(expr) {
+    return {
+        type: "AwaitExpression",
+        argument: expr
+    }
+}
+
 module.exports = {
     collectDeclarations,
     processAst,
@@ -354,5 +354,6 @@ module.exports = {
     createVariableDeclaration,
     decorateComputeAll,    
     makeFunctionCall, makeAssign,
+    makeAwait,
     makeId
 }

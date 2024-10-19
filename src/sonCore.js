@@ -1,5 +1,5 @@
 const { collectDeclarations, processAst, prependVariables, makeFunction,
-    makeFunctionCall, makeAssign,
+    makeFunctionCall, makeAssign, makeAwait,
     parseStructure, createReturnObject, makeId, createVariableDeclaration,
     decorateComputeAll, makeReturn } = require("./ast")
 const { getCall, getLine, addToSet, topologicaSort } = require("./common")
@@ -720,21 +720,31 @@ function addPropertyVariables(moduleFile, blocks) {
     }
 }
 
-function generateInvokeCalculate(name) {
+function generateInvokeCalculate(moduleFile, name, output) {
+    var prop = moduleFile.algos[name]
+    var call = makeFunctionCall(makeId(decorateProperty(name)), [])
+    if (prop.ast.async) {
+        call = makeAwait(call)
+        output.async = true
+    }
     return makeAssign(
         makeId(name),
-        makeFunctionCall(makeId(decorateProperty(name)), [])
+        call
     )
 }
 
 function generateCompute(moduleFile, name) {    
     var prop = moduleFile.algos[name]
     var sortedDeps = getAllDeps(moduleFile, prop)
-    var deps = sortedDeps.map(generateInvokeCalculate)
+    var obj = {async: false}
+    var deps = sortedDeps.map(name => {return generateInvokeCalculate(moduleFile, name, obj)})
     var fun = {
-        ast:makeFunction(decorateComputeAll(name), [], deps),
-        private:true
+        ast: makeFunction(decorateComputeAll(name), [], deps),
+        private:true        
     } 
+    if (obj.async) {
+        fun.ast.async = true
+    }
     moduleFile.functions.push(fun)
 }
 
