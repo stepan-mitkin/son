@@ -1,5 +1,5 @@
 {
-  "name": "son",
+  "name": "sonjs",
   "version": "0.3.1",
   "description": "A scenario-based programming language",
   "main": "index.js",
