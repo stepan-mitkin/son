@@ -22,6 +22,7 @@
     "url": "https://github.com/stepan-mitkin/son/issues"
   },
   "homepage": "https://github.com/stepan-mitkin/son#readme",
+  "keywords": ["conceptual programming", "scenario-based programming"],
   "dependencies": {
     "commander": "^12.1.0",
     "escodegen": "^2.1.0",
