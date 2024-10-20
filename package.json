@@ -25,10 +25,10 @@
   "dependencies": {
     "commander": "^12.1.0",
     "escodegen": "^2.1.0",
-    "esprima": "^4.0.1",
-    "node-eval": "^2.0.0"
+    "esprima": "^4.0.1"
   },
   "devDependencies": {
-    "qunit": "^2.22.0"
+    "qunit": "^2.22.0",
+    "node-eval": "^2.0.0"
   }
 }
