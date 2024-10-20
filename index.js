@@ -44,12 +44,12 @@ function main() {
         .name(packageConfig.name)
         .version(packageConfig.version)
         .description(packageConfig.description)
-        .argument('<path>', 'A folder, a module file, or a function file.')
+        .argument('<path>', 'a folder, a module file, or a function file.')
         .option("-O, --output <folder>", "the output folder")
-        .option("-B, --verbose", "Show verbose console output")
-        .option("-C, --commonjs", "Generate CommonJS modules")
-        .option("-E, --es", "Generate ES modules")
-        .option("-X, --relax", "Allow 'if', 'for', and 'switch' statements")
+        .option("-B, --verbose", "show verbose console output")
+        .option("-C, --commonjs", "generate CommonJS modules")
+        .option("-E, --es", "generate ES modules")
+        .option("-X, --relax", "allow 'if', 'for', and 'switch' statements")
         .action(mainCore);
 
     program.parse(process.argv);
