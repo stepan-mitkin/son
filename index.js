@@ -17,7 +17,8 @@ async function mainCore(filename, options) {
     try {        
         var son = sonCore()
         var config = {
-            verbose: options.verbose
+            verbose: options.verbose,
+            relax: options.relax
         }
         if (options.commonjs) {
             config.format = "commonjs"
@@ -43,11 +44,12 @@ function main() {
         .name(packageConfig.name)
         .version(packageConfig.version)
         .description(packageConfig.description)
-        .argument('<filename>', 'The Son file to parse. Can contain a function, a method, a class, or a module.')
+        .argument('<path>', 'A folder, a module file, or a function file.')
         .option("-O, --output <folder>", "the output folder")
         .option("-B, --verbose", "Show verbose console output")
         .option("-C, --commonjs", "Generate CommonJS modules")
         .option("-E, --es", "Generate ES modules")
+        .option("-X, --relax", "Allow 'if', 'for', and 'switch' statements")
         .action(mainCore);
 
     program.parse(process.argv);

@@ -45,12 +45,17 @@ async function handleSingleFile(input, output) {
     } else if (feedFile.type === "module") {
         log("Module mode: " + input)
         feedFile.format = config.format
+        configureRelax(feedFile)        
         await handleModule(feedFile, output)
     } else {
         var error = new Error("SON0006: File type not supported: " + input)
         error.filename = input
         throw error
     }
+}
+
+function configureRelax(feedFile) {
+    feedFile.relax = feedFile.config.relax || config.relax
 }
 
 function createVarContext() {
@@ -60,7 +65,8 @@ function createVarContext() {
         fields: {},
         deps: {},
         algos: {},
-        computes: {}
+        computes: {},
+        relax: false
     }
 }
 
@@ -71,7 +77,8 @@ function createVarContextFromModule(moduleContext) {
         fields: {},
         deps: {},
         algos: moduleContext.algos,
-        computes: moduleContext.computes
+        computes: moduleContext.computes,
+        relax: moduleContext.relax
     }
 
     Object.assign(result.declarations, moduleContext.declarations)
@@ -212,7 +219,7 @@ function extractConfig(input, output) {
         } else {
             throw new Error("SON0011: expected identifier or config, got " + arg.type + ". Line " + getLine(arg))
         }
-    }
+    }    
     return configuration || {}
 }
 
@@ -227,6 +234,7 @@ function ensureIdentifier(node) {
 async function handleFunction(file, output) {
     try {
         file.varContext = createVarContext()
+        file.varContext.relax = config.relax
         prepareAst(file)
         var bigAst = generateFunction(file)
         var generated = escodegen.generate(bigAst) + "\n"
@@ -811,6 +819,7 @@ async function handleModule(moduleFile, output) {
         checkConfig(moduleFile)
         moduleFile.fullPath = path.normalize(moduleFile.filename)
         var varContext = createVarContext()
+        varContext.relax = moduleFile.relax
         varContext.algos = moduleFile.algos        
         varContext.computes = moduleFile.computes        
         addToSet(moduleFile.arguments, varContext.declarations)

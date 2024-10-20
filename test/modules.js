@@ -30,6 +30,12 @@ testSon("myModule/myModule.son", assert => {
     assert.equal(73, mod.runProp())
 })
 
+testSon("relax/relax.son", assert => {
+    var mod = relax()
+    var index = mod.findFirst(['a', 'b', 'c'], 'c')
+    assert.equal(2, index)
+})
+
 testSon("examples2", assert => {
     var mod1 = proj1()
     var mod2 = proj2()

@@ -84,7 +84,8 @@ function cloneContextForFunction(node, old) {
         fields: old.fields,
         algos: old.algos,
         deps: old.deps,
-        computes: old.computes
+        computes: old.computes,
+        relax: old.relax
     };
     Object.assign(context.declarations, old.declarations);
     Object.assign(context.declarations, node.declarations);
@@ -137,11 +138,11 @@ function processAst(node, context) {
         return cloneAst(node, context)
     }
 
-    if (type === 'IfStatement'
+    if (!context.relax && (type === 'IfStatement'
         || type === 'ForOfStatement'
         || type === 'ForInStatement'
         || type === 'ForStatement'
-        || type === 'SwitchStatement') {
+        || type === 'SwitchStatement')) {
         line = getLine(node);
         throw new Error(node.type + ' is not allowed in Son. Line: ' + line);
     }
