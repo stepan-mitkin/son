@@ -27,7 +27,7 @@ async function mainCore(filename, options) {
         } else {
             config.format = "browser"
         }
-        
+
         son.inject(path, fs, process, esprima, escodegen, config)
         await son.main(filename, options.output)
     } catch (ex) {
@@ -38,18 +38,16 @@ async function mainCore(filename, options) {
 
 
 function main() {
-
-
     program
         .name(packageConfig.name)
         .version(packageConfig.version)
-        .description(packageConfig.description)
-        .argument('<path>', 'a folder, a module file, or a function file.')
-        .option("-O, --output <folder>", "the output folder")
+        .description("Son, a scenario-based programming language")
+        .argument('<path>', 'a folder, a module file, or a function file')
         .option("-B, --verbose", "show verbose console output")
         .option("-C, --commonjs", "generate CommonJS modules")
         .option("-E, --es", "generate ES modules")
         .option("-X, --relax", "allow 'if', 'for', and 'switch' statements")
+        .requiredOption("-O, --output <folder>", "the output folder (required)")
         .action(mainCore);
 
     program.parse(process.argv);

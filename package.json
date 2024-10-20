@@ -1,10 +1,10 @@
 {
   "name": "sonjs",
-  "version": "0.3.1",
+  "version": "0.3.4", 
   "description": "A scenario-based programming language",
   "main": "index.js",
   "bin": {
-    "son": "./index.js"
+    "sonjs": "./index.js"
   },
   "directories": {
     "example": "examples"
@@ -22,14 +22,17 @@
     "url": "https://github.com/stepan-mitkin/son/issues"
   },
   "homepage": "https://github.com/stepan-mitkin/son#readme",
-  "keywords": ["conceptual programming", "scenario-based programming"],
+  "keywords": [
+    "conceptual programming",
+    "scenario-based programming"
+  ],
   "dependencies": {
     "commander": "^12.1.0",
     "escodegen": "^2.1.0",
     "esprima": "^4.0.1"
   },
   "devDependencies": {
-    "qunit": "^2.22.0",
-    "node-eval": "^2.0.0"
+    "node-eval": "^2.0.0",
+    "qunit": "^2.22.0"
   }
 }

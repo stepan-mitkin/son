@@ -7,6 +7,12 @@ A scenario-based programming language
 
 One key advantage of Son is that scenarios are easy to test in isolation, making debugging and verification straightforward. Additionally, anyone with basic JavaScript knowledge can quickly start using Son, thanks to its familiar syntax and streamlined approach.
 
+## Installation
+
+```
+npm install --global sonjs
+```
+
 ## Examples
 
 This file defines a function called `fizzbuzz` that takes a single argument, `number`. The function's name is derived from the filename.
@@ -58,6 +64,39 @@ return ordinal
 
 section("The main algorithm")
 return fibonacci(ordinal - 2) + fibonacci(ordinal - 1)
+```
+
+## Usage
+
+
+### A single function
+
+Compile the `examples/myModule/fibonacci.js` function into JavaScript and save the generated `fibonacci.js` file in the `dist` folder. The `dist` folder must exist.
+
+Be careful to not to overwrite the source file. Specify a different output folder since the output filename will be the same as the source filename.
+
+
+```
+sonjs --output dist examples/myModule/fibonacci.js
+```
+
+### One project
+
+Read the Son project from the `examples/myModule/myModule.son` file and include all function, property, and plain JavaScript files from the `examples/myModule/` folder and its subfolders.
+Write the generated `myModule.js` file to the `dist` folder in the CommonJS format. The `dist` folder must exist.
+
+```
+sonjs --output dist --commonjs examples/myModule/myModule.son
+```
+
+
+### Many projects in several subfolders
+
+Find the .son module files located in the `examples/myModule` folder or its subfolders and compile the modules
+into .js files. Write the .js files to the `dist` folder in the ECMAScript format. The `dist` folder must exist.
+
+```
+sonjs --output dist --es examples/myModule
 ```
 
 ## Code generation
