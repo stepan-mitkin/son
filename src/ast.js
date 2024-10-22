@@ -146,9 +146,6 @@ function processAst(node, context) {
     }
     
     if (!context.relax && (type === 'IfStatement'
-        || type === 'ForOfStatement'
-        || type === 'ForInStatement'
-        || type === 'ForStatement'
         || type === 'SwitchStatement')) {
         line = getLine(node);
         throw new Error(node.type + ' is not allowed in Son. Line: ' + line);
