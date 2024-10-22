@@ -32,8 +32,14 @@ testSon("myModule/myModule.son", assert => {
 
 testSon("relax/relax.son", assert => {
     var mod = relax()
-    var index = mod.findFirst(['a', 'b', 'c'], 'c')
+    var index = mod.forStatement(['a', 'b', 'c'], 'c')
     assert.equal(2, index)
+
+    var s1 = mod.forOfStatement([10, 20, 30])
+    assert.equal(60, s1)
+
+    var s2 = mod.forInStatement({a: 100, b: 200, c: 300})
+    assert.equal(600, s2)
 })
 
 testSon("examples2", assert => {

@@ -138,6 +138,13 @@ function processAst(node, context) {
         return cloneAst(node, context)
     }
 
+    if (type === "ForOfStatement" || type === "ForInStatement") {
+        var left = node.left
+        if (left.type === "Identifier") {
+            context.variables[left.name] = true;
+        }
+    }
+    
     if (!context.relax && (type === 'IfStatement'
         || type === 'ForOfStatement'
         || type === 'ForInStatement'
