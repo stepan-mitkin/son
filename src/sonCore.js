@@ -636,7 +636,7 @@ function checkConfig(moduleFile) {
     moduleFile.moduleType = moduleType
 }
 
-function addHeader(moduleFile, blocks) {
+function addHeader(moduleFile, blocks) {    
     if (moduleFile.format === "es" || moduleFile.format === "commonjs") {
         if (moduleFile.before.length > 0) {
             pushExpressions(moduleFile.before, blocks)
@@ -652,27 +652,36 @@ function addHeader(moduleFile, blocks) {
         blocks.push(fun)
         blocks.push("")
     }
-    pushExpressions(moduleFile.body, blocks)
+    var hasContent = pushExpressions(moduleFile.body, blocks)
+    if (hasContent) {
+        blocks.push("")
+    }
 }
 
 function pushExpressions(body, blocks) {
+    var hasContent = false
     body.forEach(expr => {
         blocks.push(escodegen.generate(expr))
+        hasContent = true
     })
+    return hasContent
 }
 
 function addFooter(moduleFile, blocks) {
+    var exp = generateExportedObject(moduleFile)
     if (moduleFile.moduleType === "object") {
-        var ast = makeReturn(generateExportedObject(moduleFile))
-        var content = escodegen.generate(ast)
-        blocks.push(content)
+        if (exp) {
+            var ast = makeReturn(generateExportedObject(moduleFile))
+            var content = escodegen.generate(ast)
+            blocks.push(content)
+        }
         blocks.push("}")
         if (moduleFile.format === "commonjs") {
             blocks.push(escodegen.generate(generateModuleExport(makeId(moduleFile.name))) + ";")
         }
     } else {
-        if (moduleFile.format === "commonjs") {
-            blocks.push(escodegen.generate(generateModuleExport(generateExportedObject(moduleFile))) + ";")
+        if (moduleFile.format === "commonjs" && exp) {
+            blocks.push(escodegen.generate(generateModuleExport(exp)) + ";")
         }
     }
     blocks.push("")
@@ -702,6 +711,9 @@ function generateExportedObject(moduleFile) {
     var lines = moduleFile.functions
         .filter(fun => {return !fun.private})
         .map(fun => { return fun.name })
+    if (lines.length === 0) {
+        return undefined
+    }
     return createReturnObject(lines)
 }
 
