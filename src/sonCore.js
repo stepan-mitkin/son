@@ -6,6 +6,8 @@ const { getCall, getLine, addToSet, topologicaSort } = require("./common")
 const sectionBuilder = require("./sectionBuilder")
 var path, fs, process, esprima, config, escodegen
 
+var globalLines = undefined
+
 function log(message) {
     if (config.verbose) {
         console.log(message)
@@ -20,10 +22,27 @@ async function main(input, output) {
     var dir = await isDirectory(input)
     if (dir) {
         log("Directory mode: " + input)
+        if (mergeModules()) {
+            globalLines = []
+        }
         await handleDirectory(input, output)
+        if (mergeModules(config)) {
+            await saveGlobalLines(input, output)
+        }        
     } else {
         await handleSingleFile(input, output)
     }
+}
+
+function mergeModules() {    
+    return config.format === 'browser'
+}
+
+async function saveGlobalLines(input, output) {
+    var name = path.basename(input)
+    var filename = path.join(output, name) + ".js"
+    var content = globalLines.join("\n")    
+    await writeFile(filename, content)
 }
 
 async function handleSingleFile(input, output) {
@@ -93,6 +112,7 @@ async function readFile(filename) {
 }
 
 async function writeFile(filename, data) {
+    log("Writing file " + filename)
     await fs.writeFile(filename, data, "utf-8")
 }
 
@@ -862,10 +882,17 @@ async function handleModule(moduleFile, output) {
     moduleFile.properties.forEach(prop => addFunctionBlock(moduleFile, prop, blocks))
     addFooter(moduleFile, blocks)
 
-    var content = blocks.join("\n")
-    await saveModuleSource(moduleFile, content, output)
+    if (globalLines) {
+        addRange(blocks, globalLines)
+    } else {
+        var content = blocks.join("\n")
+        await saveModuleSource(moduleFile, content, output)
+    }
 }
 
+function addRange(src, dst) {
+    src.forEach(item => dst.push(item))
+}
 
 
 async function handleDirectory(folder, output) {
