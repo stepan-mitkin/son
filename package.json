@@ -1,6 +1,6 @@
 {
   "name": "sonjs",
-  "version": "0.3.5", 
+  "version": "0.4.0", 
   "description": "A scenario-based programming language",
   "main": "index.js",
   "bin": {

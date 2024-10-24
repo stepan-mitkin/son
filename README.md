@@ -58,7 +58,7 @@ Additionally, the matching rules should contain pure functions, meaning they mus
 fun(ordinal) 
 
 section("The first two elements")
-plot()
+// A plot starts implicitly with keywords yes/no
 yes(ordinal <= 1)
 return ordinal
 

@@ -12,6 +12,17 @@ testSon("myModule/add.js", assert => {
     assert.equal(7, add(2, 3))
 })
 
+testSon("myModule/fizzbuzzNoPlot.js", assert => {
+    assert.equal(undefined, fizzbuzzNoPlot(1))
+    assert.equal(undefined, fizzbuzzNoPlot(2))
+    assert.equal("Fizz", fizzbuzzNoPlot(3))
+    assert.equal(undefined, fizzbuzzNoPlot(4))
+    assert.equal("Buzz", fizzbuzzNoPlot(5))
+    assert.equal("Fizz", fizzbuzzNoPlot(6))
+    assert.equal("Buzz", fizzbuzzNoPlot(10))
+    assert.equal("FizzBuzz", fizzbuzzNoPlot(15))
+})
+
 testSon("myModule/fizzbuzz.js", assert => {
     assert.equal(undefined, fizzbuzz(1))
     assert.equal(undefined, fizzbuzz(2))

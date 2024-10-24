@@ -9,6 +9,9 @@ function nextExpression(obj, expr) {
         case "plot":
             handlePlot(obj, step)
             break
+        case "noplot":
+            handleNoPlot(obj, step)
+            break
         default:
             throw new Error("Unexpected state: " + obj.state)
     }
@@ -69,8 +72,15 @@ function readExpression(expr) {
         }
     }
 
+    var type
+    if (expr.type === "ReturnStatement" || expr.type === "ThrowStatement") {
+        type = "plotend"
+    } else {
+        type = "code"
+    }
+
     return {
-        type: "code",
+        type: type,
         line: line,
         expression: expr
     }
@@ -79,10 +89,14 @@ function readExpression(expr) {
 function handleStart(obj, step) {
     switch (step.type) {
         case "code":
+        case "plotend":
             obj.current.body.push(step.expression)
             break
         case "rule":
-            throw new Error("SON0019: yes/no is unexpected outside of function, line " + step.line)
+            startPlot(obj, undefined, step.line)
+            addToPlot(obj, step.expression)
+            obj.state = "plot"
+            break  
         case "plot":
             startPlot(obj, step.name, step.line)            
             obj.state = "plot"
@@ -101,6 +115,33 @@ function handlePlot(obj, step) {
         case "code":
         case "rule":            
             addToPlot(obj, step.expression)
+            break
+        case "plotend":
+            addToPlot(obj, step.expression)
+            obj.state = "noplot"
+            break
+        case "plot":
+            startPlot(obj, step.name, step.line)            
+            obj.state = "plot"
+            break            
+        case "section":
+            startNextSection(obj, step.name, step.line)
+            obj.state = "start"
+            break
+        default:
+            throw new Error("SON0017: Unexpected expression type: " + step.type)
+    }
+}
+
+function handleNoPlot(obj, step) {
+    switch (step.type) {
+        case "code":
+        case "plotend":
+            throw new Error("SON0019: yes()/no(), plot(), or section() expected here. Line " + step.line)
+        case "rule":            
+            startPlot(obj, undefined, step.line)
+            addToPlot(obj, step.expression)
+            obj.state = "plot"
             break
         case "plot":
             startPlot(obj, step.name, step.line)            

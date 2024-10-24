@@ -1,7 +1,6 @@
 fun(ordinal) 
 
 section("The first two elements")
-plot()
 yes(ordinal <= 1)
 return ordinal
 
