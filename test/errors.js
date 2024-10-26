@@ -27,13 +27,14 @@ tailTest("son0032_setProp_fromFunction");
 tailTest("son0032_setFunction_fromProp");
 tailTest("son0034_computeNotProperty");
 tailTest("son0035_cycle");
+tailTest("son0036_OTHERnotLast.js");
+tailTest("son0037_OTHERafterNo.js");
 
 function tailTest(filename) {
     QUnit.test(filename, function (assert) {
         expectError(filename, assert)
     });
 }
-
 
 function expectError(filename, assert) {
     const done = assert.async();

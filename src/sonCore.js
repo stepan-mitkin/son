@@ -384,27 +384,73 @@ function mergeNodes(main, addition) {
         return
     }
 
+    if (handleComparison(main, addition)) {
+        return
+    }
+    
     if (main.type !== addition.type || main.text !== addition.text) {
         throw new Error("SON0022: plots are not mutually exclusive. Line " + addition.line)
     }
 
-    if (main.type === "rule") {
+    if (main.type === "rule") {        
         if (main.condition === addition.condition) {
             mergeNodes(main.down, addition.down)
         } else {
-            if (main.right) {
-                mergeNodes(main.right, addition.down)
-            } else {
-                main.right = addition.down
-            }
+            mergeRight(main, addition.down)
         }
     } else {
         mergeNodes(main.down, addition.down)
     }
 }
 
-function convertToNodeList(plot) {
+function mergeRight(main, next) {
+    if (main.right) {
+        mergeNodes(main.right, next)
+    } else {
+        main.right = next
+    }
+}
 
+function handleComparison(main, addition) {
+    if (main.type !== "rule" || addition.type !== "rule") {
+        return false
+    }
+    if (main.text === addition.text) {
+        return false
+    }
+    var mcomp = main.comparison
+    var acomp = addition.comparison
+    if (!mcomp || !acomp) {
+        return false
+    }
+
+    if (mcomp.expressionText !== acomp.expressionText) {
+        return false
+    }
+
+    if (mcomp.other) {
+        throw new Error("SON0036: OTHER cannot be in the first rule for a given expression. Line " + main.line)
+    }    
+    
+    if (acomp.other) {
+        if (!main.right) {
+            main.right = addition.down
+        } else if (main.right && main.right.type === "rule") {
+            mergeNodes(main.right, addition)
+        } else {
+            throw new Error("SON0037: OTHER conflicts with a no() expression. Line " + main.line)
+        }        
+        return true
+    }
+
+    if (mcomp.value !== acomp.value) {
+        mergeRight(main, addition)
+        return true
+    }    
+    return false
+}
+
+function convertToNodeList(plot) {
     var body = plot.body
     if (body.length === 0) {
         return undefined
@@ -417,8 +463,6 @@ function convertToNodeList(plot) {
         prev.down = next
         prev = next
     }
-
-
 
     return head
 }
@@ -498,10 +542,12 @@ function convertExpressionToNode(expression) {
         if (call.arguments.length !== 1) {
             throw new Error("yes/no must have exactly one argument. Line " + call.line)
         }
+        var comparison = getComparison(call)
         var expr = call.arguments[0]
         return {
             type: "rule",
             condition: call.name,
+            comparison: comparison,
             line: call.line,
             expression: expr,
             text: escodegen.generate(expr)
@@ -515,6 +561,46 @@ function convertExpressionToNode(expression) {
         text: escodegen.generate(expression)
     }
 }
+
+
+function getComparison(call) {
+    if (call.name !== "yes") {
+        return undefined
+    }
+    var expr = call.arguments[0]    
+    if (expr.type === "BinaryExpression") {
+        if (expr.operator === "===" || expr.operator === "==") {
+            var left = expr.left
+            var right = expr.right            
+            if (left.type === "Literal") {
+                return {
+                    expressionText: escodegen.generate(right),
+                    value: left.value
+                }
+            }
+            if (right.type === "Literal") {
+                return {
+                    expressionText: escodegen.generate(left),
+                    value: right.value
+                }
+            }
+            if (left.type === "Identifier" && left.name === "OTHER") {
+                return {
+                    expressionText: escodegen.generate(right),
+                    other: true
+                }
+            }
+            if (right.type === "Identifier" && right.name === "OTHER") {                
+                return {
+                    expressionText: escodegen.generate(left),
+                    other: true
+                }
+            }            
+        }        
+    }
+    return undefined
+}
+
 
 function ensureUniquePlots(sections) {
     var values = {}
