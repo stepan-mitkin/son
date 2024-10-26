@@ -1,3 +1,0 @@
-fun()
-
-section("one", "two")

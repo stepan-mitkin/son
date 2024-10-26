@@ -52,25 +52,6 @@ function readExpression(expr) {
                 expression: expr
             }
         }
-        if (call.name === "section") {
-            var name
-            if (call.arguments.length === 0) {
-                name = ""                
-            } else if (call.arguments.length === 1) {
-                var arg = call.arguments[0]
-                if (arg.type !== "Literal" || typeof arg.value !== "string") {
-                    throw new Error("SON0013: the argument of section must be a string. Line: " + line)
-                }
-                name = arg.value                    
-            } else {
-                throw new Error("SON0014: section accepts one or zero arguments. Line: " + line)
-            }
-            return {
-                type: "section",
-                line: line,
-                name: name
-            }  
-        }
     }
 
     var type
@@ -138,7 +119,7 @@ function handleNoPlot(obj, step) {
     switch (step.type) {
         case "code":
         case "plotend":
-            throw new Error("SON0019: yes()/no(), plot(), or section() expected here. Line " + step.line)
+            throw new Error("SON0019: yes(), no(), or plot() expected here. Line " + step.line)
         case "rule":            
             startPlot(obj, undefined, step.line)
             addToPlot(obj, step.expression)

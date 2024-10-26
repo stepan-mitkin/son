@@ -38,16 +38,15 @@ yes(number % 5 === 0)
 return "FizzBuzz"
 ```
 
-A Son file consists of one or more sections. Each section can include optional shared code and may contain one or more plots. 
-The **fizzbuzz.js** file contains only one, default section.
+A Son file can include optional shared code and may contain one or more plots. 
 
-A plot can include both rules and actions. Actions are written in plain JavaScript, while rules are defined using the functions `yes()` and `no()`.
+A plot includes rules and actions. Actions are written in plain JavaScript, while rules are defined using the functions `yes()` and `no()`.
 
-At runtime, only one plot from each section is executed.
+At runtime, only one plot is executed.
 
-A `return` or `throw` statement terminates the function. In such a case, all remaining sections are skipped.
+A `return` or `throw` statement terminates the plot.
 
-The matching rules for all plots within a section must be mutually exclusive, meaning only the rules of one plot can be true at a time.
+The matching rules for all plots must be mutually exclusive, meaning only the rules of one plot can be true at a time.
 
 The order in which the matching rules are evaluated is important, so ensure they are arranged correctly. 
 
@@ -57,12 +56,13 @@ Additionally, the matching rules should contain pure functions, meaning they mus
 ```javascript
 fun(ordinal) 
 
-section("The first two elements")
-// A plot starts implicitly with keywords yes/no
-yes(ordinal <= 1)
+yes(ordinal === 0)
+return ordinal // return and throw end a plot
+
+yes(ordinal === 1)
 return ordinal
 
-section("The main algorithm")
+yes(ordinal === OTHER) // All other values besides 0 and 1
 return fibonacci(ordinal - 2) + fibonacci(ordinal - 1)
 ```
 
