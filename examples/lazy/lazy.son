@@ -1,0 +1,3 @@
+module(callValue1, {type: "object"})
+
+counter = 0

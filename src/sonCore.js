@@ -150,18 +150,11 @@ async function readJsFile(filename) {
                 }
             }
             if (firstCall.name === "prop") {
-                if (firstCall.arguments.length !== 0) {
-                    throw new Error("SON0030: a property cannot have arguments. Line " + firstCall.line)
-                }
-                body.shift()
-                return {
-                    type: "property",
-                    filename: filename,
-                    body: body,
-                    name: details.name,
-                    arguments: []
-                }
+                return createProperty(firstCall, body, filename, details, false)
             }
+            if (firstCall.name === "lprop") {
+                return createProperty(firstCall, body, filename, details, true)
+            }            
         }
     }
 
@@ -171,7 +164,21 @@ async function readJsFile(filename) {
         body: body,
         content: content
     }
+}
 
+function createProperty(firstCall, body, filename, details, lazy) {
+    if (firstCall.arguments.length !== 0) {
+        throw new Error("SON0030: a property cannot have arguments. Line " + firstCall.line)
+    }
+    body.shift()
+    return {
+        type: "property",
+        filename: filename,
+        body: body,
+        name: details.name,
+        lazy: lazy,
+        arguments: []
+    }
 }
 
 async function readSonFile(filename) {
@@ -387,7 +394,11 @@ function mergeNodes(main, addition) {
     if (handleComparison(main, addition)) {
         return
     }
-    
+
+    if (handleShortCut(main, addition)) {
+        return
+    }
+
     if (main.type !== addition.type || main.text !== addition.text) {
         throw new Error("SON0022: plots are not mutually exclusive. Line " + addition.line)
     }
@@ -411,6 +422,19 @@ function mergeRight(main, next) {
     }
 }
 
+function handleShortCut(main, addition) {
+    if (main.type !== "rule") {
+        return false
+    }
+
+    if (main.text === addition.text) {
+        return false
+    }
+
+    mergeRight(main, addition)    
+    return true
+}
+
 function handleComparison(main, addition) {
     if (main.type !== "rule" || addition.type !== "rule") {
         return false
@@ -418,6 +442,7 @@ function handleComparison(main, addition) {
     if (main.text === addition.text) {
         return false
     }
+
     var mcomp = main.comparison
     var acomp = addition.comparison
     if (!mcomp || !acomp) {
@@ -479,15 +504,14 @@ function appendNodeToBody(node, body) {
             upper = node.right
             lower = node.down
         }
-        var ifStatement = makeIfStatement(node.expression, upper, lower)
-        body.push(ifStatement)
+        makeIfStatement(node.expression, upper, lower, body)        
     } else {
         body.push(node.expression)
         appendNodeToBody(node.down, body)
     }
 }
 
-function makeIfStatement(condition, upper, lower) {
+function makeIfStatement(condition, upper, lower, body) {
     var ifStatement = {
         type: "IfStatement",
         test: condition,
@@ -497,16 +521,31 @@ function makeIfStatement(condition, upper, lower) {
         },
         alternate: null
     }
+    body.push(ifStatement)
     appendNodeToBody(upper, ifStatement.consequent.body)
     if (lower) {
-        var alternate = {
-            type: "BlockStatement",
-            body: []
+        if (ensWithReturnThrow(ifStatement.consequent.body)) {
+            appendNodeToBody(lower, body)
+        } else {
+            var alternate = {
+                type: "BlockStatement",
+                body: []
+            }
+            appendNodeToBody(lower, alternate.body)
+            ifStatement.alternate = alternate
         }
-        appendNodeToBody(lower, alternate.body)
-        ifStatement.alternate = alternate
+    }    
+}
+
+function ensWithReturnThrow(body) {
+    if (!body || body.length === 0) {
+        return false
     }
-    return ifStatement
+    var last = body[body.length - 1]
+    if (last.type === "ReturnStatement" || last.type === "ThrowStatement") {
+        return true
+    }
+    return false
 }
 
 function printList(node, depth) {
@@ -874,19 +913,21 @@ function collectDeps(moduleFile) {
 }
 
 function collectDepsForProp(moduleFile, prop) {
-    var sortedDeps = getAllDeps(moduleFile, prop)
-    for (var dep of sortedDeps) {
+    var allDeps = getAllDeps(moduleFile, prop, false)
+    var eagerDeps = getAllDeps(moduleFile, prop, true)
+    for (var dep of allDeps) {
         var dependency = moduleFile.algos[dep]
         if (dependency.hasAwait) {
             prop.hasAwaitInDep = true
         }
     }
-    prop.sortedDeps = sortedDeps
+    prop.sortedDeps = allDeps
+    prop.eagerDeps = eagerDeps
 }
 
 function generateCompute(moduleFile, name) {    
     var prop = moduleFile.algos[name]        
-    var deps = prop.sortedDeps.map(name => {return generateInvokeCalculate(moduleFile, name)})
+    var deps = prop.eagerDeps.map(name => {return generateInvokeCalculate(moduleFile, name)})
     var fun = {
         ast: makeFunction(decorateComputeAll(name), [], deps),
         private:true        
@@ -897,11 +938,15 @@ function generateCompute(moduleFile, name) {
     moduleFile.functions.push(fun)
 }
 
-function getAllDeps(moduleFile, prop) {
+function getAllDeps(moduleFile, prop, dropLazy) {
     var start = prop.name
     var getAdjacentNodes = key => {
         var current = moduleFile.algos[key]
-        return Object.keys(current.deps)
+        var deps = Object.keys(current.deps)
+        if (dropLazy) {
+            deps = deps.filter(dep => { return isEager(moduleFile, dep)})
+        }
+        return deps
     }
     var reportError = (key, message) => {
         var current = moduleFile.algos[key]
@@ -909,6 +954,15 @@ function getAllDeps(moduleFile, prop) {
     }
     var deps = topologicaSort(start, getAdjacentNodes, reportError)
     return deps.filter(dep => { return moduleFile.algos[dep].type === "property"})
+}
+
+function isEager(moduleFile, dep) {
+    var algo = moduleFile.algos[dep]
+    if (algo.lazy) {
+        return false
+    }
+
+    return true
 }
 
 function prepareAsts(moduleFile) {

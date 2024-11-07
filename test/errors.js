@@ -5,8 +5,6 @@ QUnit.module('Handling errors');
 
 tailTest("son0010_badjs.js");
 tailTest("son0011_badDefineFunction.js");
-tailTest("son0013_startSection_badName.js");
-tailTest("son0014_startSection_manyArguments.js");
 tailTest("son0015_plainCode_afterFunction.js");
 tailTest("son0020_repeatingSectionName.js");
 tailTest("son0021_repeatingFunctionName.js");

@@ -42,6 +42,20 @@ testSon("relax/relax.son", assert => {
     assert.equal(600, s2)
 })
 
+testSon("lazy/lazy.son", assert => {
+    var callIt = lazy(true)
+    var v2 = callIt.getValue2()
+    var counter = callIt.getCounter()
+    assert.equal(1, counter)
+    assert.equal("value2: value1", v2)
+
+    var dcallIt = lazy(false)
+    var dv2 = dcallIt.getValue2()
+    var dcounter = dcallIt.getCounter()
+    assert.equal(0, dcounter)
+    assert.equal("value2: no call", dv2)    
+})
+
 testSon("examples2", assert => {
     var mod1 = proj1()
     var mod2 = proj2()
