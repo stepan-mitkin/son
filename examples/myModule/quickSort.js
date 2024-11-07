@@ -15,7 +15,6 @@ yes(compare(array, begin, last, cmp) <= 0)
 return
 
 yes(length === 2)
-no(compare(array, begin, last, cmp) <= 0)
 swap(array, begin, last)
 return
 

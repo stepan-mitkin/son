@@ -394,7 +394,11 @@ function mergeNodes(main, addition) {
     if (handleComparison(main, addition)) {
         return
     }
-    
+
+    if (handleShortCut(main, addition)) {
+        return
+    }
+
     if (main.type !== addition.type || main.text !== addition.text) {
         throw new Error("SON0022: plots are not mutually exclusive. Line " + addition.line)
     }
@@ -418,6 +422,19 @@ function mergeRight(main, next) {
     }
 }
 
+function handleShortCut(main, addition) {
+    if (main.type !== "rule") {
+        return false
+    }
+
+    if (main.text === addition.text) {
+        return false
+    }
+
+    mergeRight(main, addition)    
+    return true
+}
+
 function handleComparison(main, addition) {
     if (main.type !== "rule" || addition.type !== "rule") {
         return false
@@ -425,6 +442,7 @@ function handleComparison(main, addition) {
     if (main.text === addition.text) {
         return false
     }
+
     var mcomp = main.comparison
     var acomp = addition.comparison
     if (!mcomp || !acomp) {
@@ -486,15 +504,14 @@ function appendNodeToBody(node, body) {
             upper = node.right
             lower = node.down
         }
-        var ifStatement = makeIfStatement(node.expression, upper, lower)
-        body.push(ifStatement)
+        makeIfStatement(node.expression, upper, lower, body)        
     } else {
         body.push(node.expression)
         appendNodeToBody(node.down, body)
     }
 }
 
-function makeIfStatement(condition, upper, lower) {
+function makeIfStatement(condition, upper, lower, body) {
     var ifStatement = {
         type: "IfStatement",
         test: condition,
@@ -504,16 +521,31 @@ function makeIfStatement(condition, upper, lower) {
         },
         alternate: null
     }
+    body.push(ifStatement)
     appendNodeToBody(upper, ifStatement.consequent.body)
     if (lower) {
-        var alternate = {
-            type: "BlockStatement",
-            body: []
+        if (ensWithReturnThrow(ifStatement.consequent.body)) {
+            appendNodeToBody(lower, body)
+        } else {
+            var alternate = {
+                type: "BlockStatement",
+                body: []
+            }
+            appendNodeToBody(lower, alternate.body)
+            ifStatement.alternate = alternate
         }
-        appendNodeToBody(lower, alternate.body)
-        ifStatement.alternate = alternate
+    }    
+}
+
+function ensWithReturnThrow(body) {
+    if (!body || body.length === 0) {
+        return false
     }
-    return ifStatement
+    var last = body[body.length - 1]
+    if (last.type === "ReturnStatement" || last.type === "ThrowStatement") {
+        return true
+    }
+    return false
 }
 
 function printList(node, depth) {
